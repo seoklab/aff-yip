@@ -13,6 +13,7 @@ from prody import parsePDB
 
 
 def lig_graph_gen(mol2file):
+    
     return lig
 
 def rec_graph_gen(pdbfile, cntr): 
