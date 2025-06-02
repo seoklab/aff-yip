@@ -1,10 +1,11 @@
 import numpy as np
 
-from parse_utils import read_pdb, read_mol2 
+from src.io.protein_parser import read_pdb
+from src.io.ligand_parser import read_mol2
 
 
 class Atom:
-    def __init__(self, name, element, coordinates, charge=None, b_factor=None, element_type=None):
+    def __init__(self, name, element, coordinates, charge=None, b_factor=None, element_type=None, nneighs=None):
         # Common attributes
         self.name = name # e.g., 'CA', 'CB' in PDB, 'C1', 'C2' in mol2
         self.element = element # e.g., 'C', 'N', 'O', 'H', 'S', 'P'
@@ -17,6 +18,7 @@ class Atom:
 
         # MOL2 file only attributes
         self.element_type = element_type  # e.g., C.3, C.ar in mol2 files (for ligand)
+        self.nneighs = nneighs  # Number of neighboring atoms of each type [H,C,N,O] for each atom (for ligand)
 
     def check_metal(self, element):
         """Check if the element is a metal."""
@@ -61,12 +63,16 @@ class Residue:
                 return atom
         return None
 
+    def get_coordinates(self):
+        """Get the coordinates of all atoms in the residue."""
+        return np.array([atom.coordinates for atom in self.atoms])
+
     def __repr__(self):
         return f"({self.res_name}.{self.chain_id}.{self.res_num})"
 
 
 class Protein:
-    def __init__(self, pdb_filepath=None, read_water=False, read_ligand=False, excl_aa_types=None, excl_chain=None):
+    def __init__(self, pdb_filepath=None, read_water=False, read_ligand=False, excl_aa_types=None, excl_chain=None, read_chain=None):
         self.pdb_filepath = pdb_filepath
         self.name = pdb_filepath.split('/')[-1].split('.')[0] if pdb_filepath else None
         self.residues = []
@@ -76,6 +82,7 @@ class Protein:
         self.read_ligand = read_ligand
         self.excl_aa_types = excl_aa_types if excl_aa_types is not None else []
         self.excl_chain = excl_chain if excl_chain is not None else []
+        self.read_chain = read_chain if read_chain is not None else []  # Only read these chains, if specified
 
         if pdb_filepath:
             self._load_pdb()
@@ -86,7 +93,8 @@ class Protein:
                                                       read_ligand=self.read_ligand, 
                                                       read_water=self.read_water, 
                                                       excl_aa_types=self.excl_aa_types, 
-                                                      excl_chain=self.excl_chain)
+                                                      excl_chain=self.excl_chain,
+                                                      read_chain=self.read_chain)
         self.res_name_list = res_names
         self.res_chain_id_list = res_chains
 
@@ -119,14 +127,26 @@ class Protein:
                 residue.is_ligand = True
             self.residues.append(residue)
 
+    def get_coordinates(self):
+        """Get the coordinates of all atoms in the protein."""
+        xyz = [np.array(self.residues[i].get_coordinates(), dtype=np.float32) for i in range(len(self.residues))]
+        xyz = np.concatenate(xyz)
+        return xyz
 
+    def get_water_coordinates(self):
+        """Get the coordinates of water molecules in the protein."""
+        water_coords = []
+        for residue in self.residues:
+            if residue.is_water:
+                for atom in residue.atoms:
+                    water_coords.append(atom.coordinates)
+        return np.array(water_coords)
 
 class Ligand:
     def __init__(self, mol2_filepath=None, drop_H=False):
         self.mol2_filepath = mol2_filepath
         self.atoms = []
         self.bonds = [] # List of tuples (Atom1, Atom2, border)
-
         self.drop_H = drop_H
         if mol2_filepath:
             self._load_mol2()
@@ -136,25 +156,94 @@ class Ligand:
         elems, qs, bonds, borders, xyzs, nneighs, atms, atypes = read_mol2(self.mol2_filepath, drop_H=self.drop_H)
         # nneighs: number of neighboring atoms of each type [H,C,N,O] for each atom
         # e.g. if an atom has 2 C neighbors, 1 N neighbor, and 0 H and O neighbors, it will be [0,2,1,0]
-        for elem, q, xyz, atm, atype in zip(elems, qs, xyzs, atms, atypes):
-            atom = Atom(name=atm, element=elem, coordinates=xyz, charge=q, element_type=atype)
+        for elem, q, xyz, atm, atype, nneighs in zip(elems, qs, xyzs, atms, atypes, nneighs):
+            atom = Atom(name=atm, element=elem, coordinates=xyz, charge=q, element_type=atype, nneighs=nneighs)
             self.atoms.append(atom)
 
         for bond, border in zip(bonds, borders):
             atom1 = self.atoms[bond[0]]
             atom2 = self.atoms[bond[1]]
             self.bonds.append((atom1, atom2, border))
-
+    
+    def get_coordinates(self):
+        """Get the coordinates of all atoms in the ligand."""
+        return np.array([atom.coordinates for atom in self.atoms])
+    
+    def get_atom_elements(self):
+        """Get a list of all atoms in the ligand."""
+        return np.array([atom.element for atom in self.atoms])
 
 class VirtualNode:
     def __init__(self, coordinates, node_type='virtual'):
         self.coordinates = np.array(coordinates)
         self.node_type = node_type  # e.g., 'virtual', 'pocket', etc.
-    
-    def get_water_occupancy(self, water_coords):
-        """Calculate water occupancy based on distance to water molecules."""
-        distances = np.linalg.norm(self.coordinates - water_coords, axis=1)
-        occupancy = np.sum(distances < 3.5)
+        self.water_occupancy = None
+
+    def set_water_occupancy(self, water_coords, sigma=2.0, cutoff_distance=6.0, 
+                          normalization='none'):
+        """
+        Calculate water occupancy with various normalization options.
+        
+        Parameters:
+        -----------
+        water_coords : np.array or torch.Tensor
+            Array of water coordinates, shape (n_waters, 3)  
+        sigma : float, default=2.0
+            Standard deviation for Gaussian distribution
+        cutoff_distance : float, default=6.0
+            Maximum distance to consider water molecules
+        normalization : str, default='none'
+            'none': Raw sum of Gaussian weights
+            'count': Divide by number of water molecules within cutoff
+            'max_possible': Divide by theoretical maximum (all waters at node position)
+            'density': Normalize by local volume
+        
+        Returns:
+        --------
+        float : occupancy value
+        """
+        if hasattr(water_coords, 'detach'):  # Check if it's a torch tensor
+            water_coords = water_coords.detach().cpu().numpy()
+        elif not isinstance(water_coords, np.ndarray):
+            water_coords = np.array(water_coords)
+
+        if len(water_coords) == 0:
+            self.water_occupancy = 0.0
+            return self.water_occupancy
+        
+        # Calculate distances
+        distances = np.linalg.norm(water_coords - self.coordinates, axis=1)
+        
+        # Apply cutoff
+        mask = distances <= cutoff_distance
+        if not np.any(mask):
+            self.water_occupancy = 0.0
+            return self.water_occupancy
+        
+        relevant_distances = distances[mask]
+        n_relevant_waters = len(relevant_distances)
+        
+        # Calculate Gaussian weights
+        weights = np.exp(-0.5 * (relevant_distances / sigma) ** 2)
+        raw_occupancy = np.sum(weights)
+        
+        # Apply normalization
+        if normalization == 'none':
+            self.water_occupancy = raw_occupancy
+        elif normalization == 'count':
+            self.water_occupancy = raw_occupancy / n_relevant_waters
+        elif normalization == 'max_possible':
+            # Maximum possible weight (if all waters were at the node position)
+            max_weight = n_relevant_waters * 1.0  # Gaussian peak value is 1
+            self.water_occupancy = raw_occupancy / max_weight
+        elif normalization == 'density':
+            # Normalize by the volume of the sphere within cutoff
+            volume = (4/3) * np.pi * cutoff_distance**3
+            self.water_occupancy = raw_occupancy / volume
+        else:
+            raise ValueError(f"Unknown normalization method: {normalization}")
+        
+        return self.water_occupancy
 
     def __repr__(self):
         return f"VirtualNode(type={self.node_type}, coords={self.coordinates})"
@@ -164,5 +253,7 @@ if __name__ == '__main__':
     # Example usage
     pdb_file = '5hz8.pdb'
     mol2_file = '/home/j2ho/DB/pdbbind/v2020-refined/5hz8/5hz8_ligand.mol2'
-    protein = Protein(pdb_filepath=pdb_file)
+    protein = Protein(pdb_filepath=pdb_file, read_water=True)
     ligand = Ligand(mol2_filepath=mol2_file)
+    xyzs = protein.get_coordinates()
+    print ("Protein Coordinates:", xyzs)

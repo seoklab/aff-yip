@@ -1,0 +1,128 @@
+import os
+import argparse
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.loggers import WandbLogger
+import wandb
+
+from src.model.basic import AFFModel_GVP
+from src.data.datamodule import RLADataModule
+
+
+def main(args):
+    pl.seed_everything(args.seed)
+
+    # === Init wandb (optional disable)
+    if args.disable_wandb:
+        os.environ["WANDB_MODE"] = "disabled"
+
+    wandb_logger = WandbLogger(
+        name=args.run_name,
+        project=args.project,
+        save_dir=args.output_dir,
+        log_model=True
+    )
+    wandb_logger.experiment.config.update(vars(args))  # log all CLI args
+
+    # === Data module
+    data_module = RLADataModule(
+        data_path=args.data_path,
+        train_meta_path=args.train_data_path,
+        val_meta_path=args.valid_data_path,
+        test_meta_path=args.test_data_path,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        top_k=args.top_k,
+        crop_size=args.crop_size
+    )
+
+    # === Model
+    model = AFFModel_GVP(
+        protein_node_dims=(args.protein_scalar_dim, args.protein_vector_dim),
+        protein_edge_dims=(args.protein_edge_scalar_dim, args.protein_edge_vector_dim),
+        ligand_node_dims=(args.ligand_scalar_dim, 0),
+        ligand_edge_dims=(args.ligand_edge_scalar_dim, 0),
+        protein_hidden_dims=(args.hidden_scalar_dim, args.hidden_vector_dim),
+        ligand_hidden_dims=(args.hidden_scalar_dim, 0),
+        num_gvp_layers=args.num_gvp_layers,
+        dropout=args.dropout,
+        lr=args.learning_rate
+    )
+
+    # === Callbacks
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=os.path.join(args.output_dir, 'checkpoints'),
+        filename='model-{epoch:02d}-{val_loss:.4f}',
+        monitor='val_loss',
+        mode='min',
+        save_top_k=3,
+        save_last=True
+    )
+
+    early_stop_callback = EarlyStopping(
+        monitor='val_loss',
+        patience=args.patience,
+        mode='min'
+    )
+
+    # === Trainer
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        callbacks=[checkpoint_callback, early_stop_callback],
+        logger=wandb_logger,
+        log_every_n_steps=10,
+        accelerator='auto',
+        devices=args.devices
+    )
+
+    trainer.fit(model, data_module)
+    trainer.test(model, datamodule=data_module)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train GVP-based protein-ligand affinity model')
+
+    # === General
+    general = parser.add_argument_group('General')
+    general.add_argument('--seed', type=int, default=42)
+    general.add_argument('--output_dir', type=str, default='./outputs')
+    general.add_argument('--disable_wandb', action='store_true')
+    general.add_argument('--project', type=str, default='protein-ligand-affinity')
+    general.add_argument('--run_name', type=str, default='gvp_affinity_run')
+
+    # === Data
+    data = parser.add_argument_group('Data')
+    data.add_argument('--data_path', type=str, default='.')
+    data.add_argument('--train_data_path', type=str, default='data/train.json')
+    data.add_argument('--valid_data_path', type=str, default='data/valid.json')
+    data.add_argument('--test_data_path', type=str, default='data/test.json')
+    data.add_argument('--batch_size', type=int, default=4)
+    data.add_argument('--num_workers', type=int, default=4)
+    data.add_argument('--top_k', type=int, default=30)
+    data.add_argument('--crop_size', type=int, default=30)
+
+    # === GVP model dims
+    model = parser.add_argument_group('Model: Feature Dimensions')
+    model.add_argument('--protein_scalar_dim', type=int, default=6)
+    model.add_argument('--protein_vector_dim', type=int, default=3)
+    model.add_argument('--protein_edge_scalar_dim', type=int, default=32)
+    model.add_argument('--protein_edge_vector_dim', type=int, default=3)
+    model.add_argument('--ligand_scalar_dim', type=int, default=46)
+    model.add_argument('--ligand_edge_scalar_dim', type=int, default=9)
+
+    model.add_argument('--hidden_scalar_dim', type=int, default=128)
+    model.add_argument('--hidden_vector_dim', type=int, default=16)
+    model.add_argument('--num_gvp_layers', type=int, default=3)
+    model.add_argument('--dropout', type=float, default=0.1)
+
+    # === Optimization
+    optim = parser.add_argument_group('Optimization')
+    optim.add_argument('--learning_rate', type=float, default=1e-3)
+    optim.add_argument('--max_epochs', type=int, default=100)
+    optim.add_argument('--patience', type=int, default=10)
+    optim.add_argument('--devices', type=int, default=1)
+
+    args = parser.parse_args()
+
+    os.makedirs(args.output_dir, exist_ok=True)
+    main(args)

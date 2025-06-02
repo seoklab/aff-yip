@@ -1,200 +1,159 @@
-# cluade aided outline for dataset 
-# NOT FIT FOR ACTUAL USAGE YET !!!!
-
+# src/data/dataset_gvp.py
 import os
 import torch
+# import torch_geometric # No longer directly used for Data creation here
+# import torch_cluster # No longer directly used here
 import numpy as np
-import pytorch_lightning as pl
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
+
+# Import your structures, and new featurizer classes
+from .structures import Protein, Ligand, VirtualNode # Assuming this path is correct for structures
+from .featurizers.protein import ProteinFeaturizer
+from .featurizers.ligand import LigandFeaturizer
 
 
-class ProteinDataset(Dataset):
-    """
-    Dataset for protein structure data
-    """
-    def __init__(self, data_path, mode='train', max_length=500):
-        """
-        Initialize the dataset
-        :param data_path: Path to the data directory
-        :param mode: One of 'train', 'val', or 'test'
-        :param max_length: Maximum sequence length
-        """
+class RLADataset(Dataset):
+    def __init__(self, data_path=None, target_dict: dict = None, mode='train', top_k=30, crop_size=30): # max_length not used in snippet
         self.data_path = data_path
         self.mode = mode
-        self.max_length = max_length
-        
-        # Load the dataset
-        file_path = os.path.join(data_path, f"{mode}.npz")
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"File {file_path} not found")
-        
-        data = np.load(file_path, allow_pickle=True)
-        
-        # Store the data
-        self.X = data['X']  # Backbone coordinates [N, L, 4, 3]
-        self.S = data['S']  # Sequences [N, L]
-        
-        # For MQA data, also load quality scores if present
-        if 'y' in data:
-            self.y = data['y']  # Quality scores [N]
-            self.has_quality = True
+        self.top_k = top_k 
+        self.crop_size = crop_size 
+        self.samples = []
+        self.skip_virtual = True
+        # Instantiate featurizers
+        self.protein_featurizer = ProteinFeaturizer(top_k=self.top_k)
+        self.ligand_featurizer = LigandFeaturizer()
+
+        # Default protein and ligand for testing mode (if target_dict is None)
+        # These are loaded once and used if no target_dict is provided.
+        self.default_protein_w_obj = Protein(
+            pdb_filepath=os.path.join(data_path, '2etr.pdb'),
+            read_water=True, read_ligand=False, read_chain=['A']
+        )
+        self.default_protein_obj = Protein(
+            pdb_filepath=os.path.join(data_path, '2etr.pdb'),
+            read_water=False, read_ligand=False, read_chain=['A'] # No water, no ligand, only chain A
+        )
+        self.default_ligand_obj = Ligand(
+            mol2_filepath=os.path.join(data_path, '2etr_lig.mol2') # Consider making this path relative or configurable
+        )
+
+        if target_dict:
+            for target_info in target_dict: # Renamed for clarity
+                try:
+                    pdbfile = target_info.get('pdb_file_biolip', None) # biolip pdbs, only residues
+                    pdbfile_raw = target_info.get('pdb_file_db', None) # pdb files from db, with water and other residues
+                    receptor_chain = target_info.get('receptor_chain', None) # Optional receptor chain
+                    ligfile = target_info.get('ligand_mol2', None)
+                    affinity = target_info.get('affinity', None)
+                    name = target_info.get('name', 'UnnamedTarget')
+                    center = target_info.get('center', None) # Optional center for cropping
+                    center = torch.tensor(center, dtype=torch.float32) if center is not None else None
+
+                    if not pdbfile or not ligfile:
+                        print(f"[Warning] Skipped {name}: Missing PDB or ligand file path.")
+                        continue
+
+                    protein_w_obj = Protein(pdb_filepath=pdbfile_raw, read_water=True, read_ligand=False, read_chain=[receptor_chain] if receptor_chain else None)
+                    protein_obj = Protein(pdb_filepath=pdbfile, read_water=False, read_ligand=False)
+                    ligand_obj = Ligand(mol2_filepath=ligfile, drop_H=False)
+                    # protein graph with virtual nodes and water
+                    # print ('Featurizing protein with virtual nodes and water...')
+                    if not self.skip_virtual:
+                        protein_virtual_graph = self.protein_featurizer.featurize_graph_with_virtual_nodes(
+                        protein_w_water=protein_w_obj,
+                        protein_wo_water=protein_obj, # Virtual nodes based on default protein
+                        ligand=ligand_obj,   # and default ligand
+                        center=center,
+                        crop_size=self.crop_size,
+                        target_name=name
+                        )
+                    else:
+                        protein_virtual_graph = None
+                    """
+                    featurize_graph_with_water handles has_water check 
+                    if protein_obj has water, it will include it in the graph
+                    """
+                    # These three are equivalent / protein graph without water and without virtual nodes
+                    # print ('Featurizing protein only, using no_water_protein object') 
+                    # protein_only_graph = self.protein_featurizer.featurize_graph_with_water(protein_obj, center=center, crop_size=self.crop_size)
+                    # print ('Featurizing protein only, using no_water_protein object, with no_water function')
+                    protein_only_graph = self.protein_featurizer.featurize_no_water_graph(protein_obj, center=center, crop_size=self.crop_size)  
+                    # print ('Featurizing protein only, using water_protein object with no_water function')
+                    # protein_only_graph = self.protein_featurizer.featurize_no_water_graph(protein_w_obj, center=center, crop_size=self.crop_size)    
+
+                    ## protein graph with water but without virtual nodes
+                    # print ('Featurizing protein with water (no virtual nodes), using water_protein object')
+                    protein_water_graph = self.protein_featurizer.featurize_graph_with_water(protein_w_obj, center=center, crop_size=self.crop_size)
+                    
+                    ligand_graph = self.ligand_featurizer.featurize_graph(ligand_obj)
+                    if not self.skip_virtual:
+                        self.samples.append({
+                            'name': name,
+                            'protein_virtual': protein_virtual_graph, # Protein graph + water + virtual nodes
+                            'protein_water': protein_water_graph, # Protein gra
+                            'protein_only': protein_only_graph, # Protein - water - virtual nodes
+                            'ligand': ligand_graph,
+                            'affinity': affinity,
+                            'ligand_coords': ligand_obj.get_coordinates()
+                        })
+                    else:
+                        self.samples.append({
+                            'name': name,
+                            'protein_water': protein_water_graph, # Protein graph + water
+                            'protein_only': protein_only_graph, # Protein - water
+                            'ligand': ligand_graph,
+                            'affinity': affinity,
+                            'ligand_coords': ligand_obj.get_coordinates()
+                        })
+                except Exception as e:
+                    target_name_for_error = target_info.get('name', 'Unknown Target')
+                    print(f"[Warning] Skipped {target_name_for_error} due to error: {e}")
         else:
-            self.has_quality = False
+            # Testing mode with default protein and ligand
+            center = torch.tensor([-4.374, -7.353, -19.189], dtype=torch.float32)
+            print ('Featurizing protein with virtual nodes and water...')
+            protein_virtual_graph = self.protein_featurizer.featurize_graph_with_virtual_nodes(
+                protein_w_water=self.default_protein_w_obj,
+                protein_wo_water=self.default_protein_obj, # Virtual nodes based on default protein
+                ligand=self.default_ligand_obj,   # and default ligand
+                center=center,
+                crop_size=self.crop_size
+            )
+            """
+            featurize_graph_with_water handles has_water check 
+            if protein_obj has water, it will include it in the graph
+            """
+            # These three are equivalent / protein graph without water and without virtual nodes
+            print ('Featurizing protein only, using no_water_protein object') 
+            protein_only_graph = self.protein_featurizer.featurize_graph_with_water(self.default_protein_obj, center=center, crop_size=self.crop_size)  
+            print ('Featurizing protein only, using no_water_protein object, with no_water function')
+            protein_only_graph = self.protein_featurizer.featurize_no_water_graph(self.default_protein_obj, center=center, crop_size=self.crop_size) 
+            print ('Featurizing protein only, using water_protein object with no_water function')
+            protein_only_graph = self.protein_featurizer.featurize_no_water_graph(self.default_protein_w_obj, center=center, crop_size=self.crop_size) 
+
+            ## protein graph with water but without virtual nodes
+            print ('Featurizing protein with water (no virtual nodes), using water_protein object')
+            protein_water_graph = self.protein_featurizer.featurize_graph_with_water(self.default_protein_w_obj, center=center, crop_size=self.crop_size)
             
-        # Filter by length
-        self.valid_indices = [i for i, x in enumerate(self.X) 
-                             if x.shape[0] <= max_length]
-        
-        print(f"Loaded {len(self.valid_indices)} proteins for {mode}")
-        
+            ligand_graph = self.ligand_featurizer.featurize_graph(self.default_ligand_obj)
+            
+            data_sample = { 
+                'protein_virtual': protein_virtual_graph, # Protein graph + water + virtual nodes
+                'protein_water': protein_water_graph, # Protein gra
+                'protein_only': protein_only_graph, # Protein - water - virtual nodes
+                'ligand': ligand_graph,
+                'ligand_coords': self.default_ligand_obj.get_coordinates()
+
+            }
+            self.samples.append(data_sample)
+
     def __len__(self):
-        """Return the number of proteins in the dataset"""
-        return len(self.valid_indices)
-    
+        return len(self.samples)
+
     def __getitem__(self, idx):
-        """Get a protein sample"""
-        idx = self.valid_indices[idx]
-        
-        # Get the protein data
-        X = self.X[idx]  # [L, 4, 3]
-        S = self.S[idx]  # [L]
-        
-        # Create a mask (1 for positions with data, 0 for padding)
-        L = X.shape[0]
-        mask = np.ones(L, dtype=np.bool_)
-        
-        # Convert to tensors
-        X = torch.tensor(X, dtype=torch.float32)
-        S = torch.tensor(S, dtype=torch.long)
-        mask = torch.tensor(mask, dtype=torch.bool)
-        
-        if self.has_quality:
-            y = torch.tensor(self.y[idx], dtype=torch.float32)
-            return X, S, mask, y
-        else:
-            return X, S, mask
+        return self.samples[idx]
 
-
-class ProteinCollator:
-    """
-    Collates protein samples into a batch
-    """
-    def __init__(self, has_quality=False):
-        self.has_quality = has_quality
-    
-    def __call__(self, batch):
-        """
-        Collate protein samples
-        :param batch: List of protein samples
-        :return: Batched tensors
-        """
-        if self.has_quality:
-            X, S, mask, y = zip(*batch)
-        else:
-            X, S, mask = zip(*batch)
-        
-        # Get sequence lengths
-        lengths = [x.shape[0] for x in X]
-        max_length = max(lengths)
-        
-        # Pad the sequences
-        X_padded = []
-        S_padded = []
-        mask_padded = []
-        
-        for i, l in enumerate(lengths):
-            # Padding for X
-            padding = torch.zeros(max_length - l, 4, 3)
-            X_padded.append(torch.cat([X[i], padding], dim=0))
-            
-            # Padding for S
-            padding = torch.zeros(max_length - l, dtype=torch.long)
-            S_padded.append(torch.cat([S[i], padding], dim=0))
-            
-            # Padding for mask
-            padding = torch.zeros(max_length - l, dtype=torch.bool)
-            mask_padded.append(torch.cat([mask[i], padding], dim=0))
-        
-        # Stack
-        X_batch = torch.stack(X_padded, dim=0)
-        S_batch = torch.stack(S_padded, dim=0)
-        mask_batch = torch.stack(mask_padded, dim=0)
-        
-        if self.has_quality:
-            y_batch = torch.tensor(y, dtype=torch.float32)
-            return X_batch, S_batch, mask_batch, y_batch
-        else:
-            return X_batch, S_batch, mask_batch
-
-
-class ProteinDataModule(pl.LightningDataModule):
-    """
-    Data module for protein structure data
-    """
-    def __init__(self, data_path, batch_size=8, num_workers=8, max_length=500,
-                 is_mqa=True):
-        """
-        Initialize the data module
-        :param data_path: Path to the data directory
-        :param batch_size: Batch size
-        :param num_workers: Number of workers for data loading
-        :param max_length: Maximum sequence length
-        :param is_mqa: Whether the data is for Model Quality Assessment
-        """
-        super(ProteinDataModule, self).__init__()
-        self.data_path = data_path
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-        self.max_length = max_length
-        self.is_mqa = is_mqa
-        
-    def setup(self, stage=None):
-        """
-        Set up the datasets
-        :param stage: Stage ('fit', 'validate', 'test', or None)
-        """
-        if stage == 'fit' or stage is None:
-            self.train_dataset = ProteinDataset(
-                self.data_path, mode='train', max_length=self.max_length
-            )
-            self.val_dataset = ProteinDataset(
-                self.data_path, mode='val', max_length=self.max_length
-            )
-            
-        if stage == 'test' or stage is None:
-            self.test_dataset = ProteinDataset(
-                self.data_path, mode='test', max_length=self.max_length
-            )
-    
-    def train_dataloader(self):
-        """Get the training data loader"""
-        return DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            collate_fn=ProteinCollator(has_quality=self.is_mqa),
-            pin_memory=True
-        )
-    
-    def val_dataloader(self):
-        """Get the validation data loader"""
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            collate_fn=ProteinCollator(has_quality=self.is_mqa),
-            pin_memory=True
-        )
-    
-    def test_dataloader(self):
-        """Get the test data loader"""
-        return DataLoader(
-            self.test_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            collate_fn=ProteinCollator(has_quality=self.is_mqa),
-            pin_memory=True
-        )
+if __name__ == '__main__':
+    # Example usage
+    ProteinDataset = RLADataset(data_path='.', mode='train')

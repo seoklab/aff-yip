@@ -1,0 +1,114 @@
+# src/data/featurizers/ligand.py
+import torch
+import torch.nn.functional as F
+from torch_geometric.data import Data
+import numpy as np
+
+from ..structures import Ligand, Atom # For type hinting and potentially creating dummy atom
+
+class LigandFeaturizer:
+    def __init__(self):
+        # Define vocabularies and mappings
+        # Ensure 'H' is included if not dropped, and handle other common elements
+        self.element_vocab = ['C', 'N', 'O', 'S', 'P', 'F', 'Cl', 'Br', 'I', 'H', 'B', 'SI', 'SE', 'NA', 'K', 'MG', 'CA', 'ZN', 'MN', 'UNK_ELEM']
+        self.element_to_index = {elem: i for i, elem in enumerate(self.element_vocab)}
+
+        # Example SYBYL atom types. Populate this based on your data.
+        self.atom_type_vocab = ['C.3', 'C.2', 'C.ar', 'C.cat', 'N.3', 'N.2', 'N.ar', 'N.am', 'N.pl3', 'N.4',
+                                'O.3', 'O.2', 'O.co2', 'S.3', 'S.O2', 'P.3', 'H', 'LP', 'DU', 'ANY', 'UNK_ATOM_TYPE']
+        self.atom_type_to_index = {atype: i for i, atype in enumerate(self.atom_type_vocab)}
+
+        self.bond_type_vocab = ['1', '2', '3', 'ar', 'am', 'du', 'un', 'nc', 'UNK_BOND'] # MOL2 bond types
+        self.bond_type_to_index = {btype: i for i, btype in enumerate(self.bond_type_vocab)}
+        self.num_bond_features = len(self.bond_type_vocab)
+
+        # Determine feature dimension for empty atom list case
+        # This is a bit of a hack; ideally, Atom class is robust or features are fixed
+        dummy_coords = np.array([0.0, 0.0, 0.0])
+        dummy_nneighs = np.array([0,0,0,0]) # H, C, N, O counts
+        try:
+            # Create a truly minimal Atom-like object for _get_atom_features if Atom class is complex
+            class MinimalAtom:
+                def __init__(self, element, element_type, charge, nneighs):
+                    self.element = element
+                    self.element_type = element_type
+                    self.charge = charge
+                    self.nneighs = nneighs
+            dummy_atom = MinimalAtom(element='C', element_type='C.3', charge=0.0, nneighs=dummy_nneighs)
+            self.atom_feature_dim = self._get_atom_features(dummy_atom).shape[0]
+        except Exception:
+            self.atom_feature_dim = len(self.element_vocab) + len(self.atom_type_vocab) + 1 + 4 # Fallback
+
+    def _get_atom_features(self, atom: Atom) -> torch.Tensor:
+        elem_str = atom.element.upper() if isinstance(atom.element, str) else str(atom.element) # Ensure string and uppercase
+        element_idx = self.element_to_index.get(elem_str, self.element_to_index['UNK_ELEM'])
+        element_one_hot = F.one_hot(torch.tensor(element_idx), num_classes=len(self.element_vocab)).float()
+
+        atom_type_str = str(atom.element_type) # Ensure string
+        atom_type_idx = self.atom_type_to_index.get(atom_type_str, self.atom_type_to_index['UNK_ATOM_TYPE'])
+        atom_type_one_hot = F.one_hot(torch.tensor(atom_type_idx), num_classes=len(self.atom_type_vocab)).float()
+
+        charge_tensor = torch.tensor([float(atom.charge)], dtype=torch.float32) # Ensure float
+
+        # Ensure nneighs is a tensor of fixed size (e.g., 4 for H, C, N, O)
+        nneighs = np.array(atom.nneighs, dtype=float) # Ensure numpy array of floats
+        if nneighs.size != 4: # Example fixed size
+            # This padding/truncating logic needs to match your `nneighs` definition from `read_mol2`
+            corrected_nneighs = np.zeros(4, dtype=float)
+            min_len = min(nneighs.size, 4)
+            corrected_nneighs[:min_len] = nneighs[:min_len]
+            nneighs_tensor = torch.tensor(corrected_nneighs, dtype=torch.float32)
+        else:
+            nneighs_tensor = torch.tensor(nneighs, dtype=torch.float32)
+
+        return torch.cat([element_one_hot, atom_type_one_hot, charge_tensor, nneighs_tensor])
+
+    def _get_bond_features(self, border_type) -> torch.Tensor:
+        # MOL2 bond types can be '1', '2', '3', 'am' (amide), 'ar' (aromatic), 'du' (dummy), 'un' (unknown), 'nc' (not connected)
+        bond_type_str = str(border_type).lower()
+        bond_idx = self.bond_type_to_index.get(bond_type_str, self.bond_type_to_index['UNK_BOND'])
+        return F.one_hot(torch.tensor(bond_idx), num_classes=len(self.bond_type_vocab)).float()
+
+    def featurize_graph(self, ligand: Ligand) -> Data:
+        if not ligand.atoms:
+            pos = torch.empty((0, 3), dtype=torch.float32)
+            x = torch.empty((0, self.atom_feature_dim), dtype=torch.float32)
+            edge_index = torch.empty((2, 0), dtype=torch.long)
+            edge_attr = torch.empty((0, self.num_bond_features), dtype=torch.float32)
+            return Data(x=x, edge_index=edge_index, pos=pos, edge_attr=edge_attr)
+
+        pos = torch.tensor(ligand.get_coordinates(), dtype=torch.float32)
+        node_features_list = [self._get_atom_features(atom) for atom in ligand.atoms]
+        x = torch.stack(node_features_list)
+
+        # Ensure atoms in bonds are actual Atom objects from ligand.atoms for robust mapping
+        atom_obj_to_idx_map = {atom_obj: i for i, atom_obj in enumerate(ligand.atoms)}
+        
+        edge_src, edge_dst, edge_attr_list = [], [], []
+        for atom1_obj, atom2_obj, border_type in ligand.bonds:
+            idx1 = atom_obj_to_idx_map.get(atom1_obj)
+            idx2 = atom_obj_to_idx_map.get(atom2_obj)
+
+            if idx1 is None or idx2 is None:
+                # This case should ideally not happen if ligand.bonds is consistent with ligand.atoms
+                print(f"Warning: Atom object in bond not found in ligand's atom list. Skipping bond.")
+                continue
+            
+            edge_src.extend([idx1, idx2])
+            edge_dst.extend([idx2, idx1]) # Add edges in both directions
+            
+            bond_f = self._get_bond_features(border_type)
+            edge_attr_list.extend([bond_f, bond_f])
+        
+        if edge_src:
+            edge_index = torch.tensor([edge_src, edge_dst], dtype=torch.long)
+            edge_attr = torch.stack(edge_attr_list)
+        else: # No bonds
+            edge_index = torch.empty((2,0), dtype=torch.long)
+            # Ensure edge_attr has correct feature dimension even if empty
+            edge_attr = torch.empty((0, self.num_bond_features), dtype=torch.float32)
+        # print (f"Featurized {len(ligand.atoms)} atoms / {edge_index.size(1)} edges")
+        # print few data for debugging
+        # print (f"Node features shape: {x.shape}, Edge index shape: {edge_index.shape}, Edge attributes shape: {edge_attr.shape}")
+        # print (f"Node features sample: {x[:5] if x.size(0) > 5 else x}, Edge attributes sample: {edge_attr[:5] if edge_attr.size(0) > 5 else edge_attr}")
+        return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, pos=pos) 
