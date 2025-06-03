@@ -45,7 +45,9 @@ class RLADataset(Dataset):
                     pdbfile_raw = target_info.get('pdb_file_db', None) # pdb files from db, with water and other residues
                     receptor_chain = target_info.get('receptor_chain', None) # Optional receptor chain
                     ligfile = target_info.get('ligand_mol2', None)
-                    affinity = target_info.get('affinity', None)
+                    affinity_value = target_info.get('affinity', None)
+                    if affinity_value is not None:
+                        affinity = torch.tensor(float(affinity_value), dtype=torch.float32)
                     name = target_info.get('name', 'UnnamedTarget')
                     center = target_info.get('center', None) # Optional center for cropping
                     center = torch.tensor(center, dtype=torch.float32) if center is not None else None
@@ -95,7 +97,6 @@ class RLADataset(Dataset):
                             'protein_only': protein_only_graph, # Protein - water - virtual nodes
                             'ligand': ligand_graph,
                             'affinity': affinity,
-                            'ligand_coords': ligand_obj.get_coordinates()
                         })
                     else:
                         self.samples.append({
@@ -104,7 +105,6 @@ class RLADataset(Dataset):
                             'protein_only': protein_only_graph, # Protein - water
                             'ligand': ligand_graph,
                             'affinity': affinity,
-                            'ligand_coords': ligand_obj.get_coordinates()
                         })
                 except Exception as e:
                     target_name_for_error = target_info.get('name', 'Unknown Target')
@@ -143,7 +143,6 @@ class RLADataset(Dataset):
                 'protein_water': protein_water_graph, # Protein gra
                 'protein_only': protein_only_graph, # Protein - water - virtual nodes
                 'ligand': ligand_graph,
-                'ligand_coords': self.default_ligand_obj.get_coordinates()
 
             }
             self.samples.append(data_sample)
