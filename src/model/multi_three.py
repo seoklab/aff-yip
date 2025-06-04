@@ -6,7 +6,7 @@ from torch_geometric.data import Batch
 from torch_scatter import scatter_mean
 from src.model.gvp_encoder import GVPGraphEncoderHybrid as GVPGraphEncoder
 
-class AFFModel_ThreeBody_Enhanced(pl.LightningModule):
+class AFFModel_ThreeBody(pl.LightningModule):
     def __init__(self,
                  protein_node_dims=(6, 3),
                  water_node_dims=(6, 3),
@@ -210,12 +210,15 @@ class AFFModel_ThreeBody_Enhanced(pl.LightningModule):
         
         embeddings = []
         batch_size = len(lig_s_list)
-        
+        # print (water_mask)
+        # print (water_s)
+        # print (water_s_list) 
+
         for i in range(batch_size):
             l = lig_s_list[i]
             p = prot_s_list[i] if i < len(prot_s_list) else torch.empty(0, self.hparams.protein_hidden_dims[0], device=self.device)
             w = water_s_list[i] if i < len(water_s_list) else torch.empty(0, self.hparams.protein_hidden_dims[0], device=self.device)
-            
+            # print (w)   
             if self.interaction_mode == "hierarchical":
                 embedding = self._hierarchical_interaction(p, w, l)
             else:
@@ -415,7 +418,7 @@ class AFFModel_ThreeBody_Enhanced(pl.LightningModule):
         prot_e_v = protein_batch.edge_v[prot_edge_mask]
         
         # Debug: Check edge shapes
-        # print(f"Protein edges - prot_e_s: {prot_e_s.shape}, prot_e_v: {prot_e_v.shape}")
+        print(f"Protein edges - prot_e_s: {prot_e_s.shape}, prot_e_v: {prot_e_v.shape}")
         # print(f"Expected edge_s: (E, 32), edge_v: (E, 1, 3)")
         
         # Remap edge indices
@@ -462,11 +465,11 @@ class AFFModel_ThreeBody_Enhanced(pl.LightningModule):
         water_node_indices = water_mask.nonzero(as_tuple=True)[0]
         water_x_s = protein_batch.node_s[water_mask]  # [N_water, 6]
         
-        # print(f"[Debug] Processing {water_mask.sum()} water nodes")
+        print(f"[Debug] Processing {water_mask.sum()} water nodes")
         
         # Check if this sample actually has water nodes with proper features
         if water_x_s.size(0) == 0:
-            # print("[Debug] Water mask found nodes but features are empty")
+            print("[Debug] Water mask found nodes but features are empty")
             return torch.empty(0, self.hparams.protein_hidden_dims[0], device=self.device)
         
         # Currently no vector features for water, but ready for dipole vectors
@@ -480,16 +483,16 @@ class AFFModel_ThreeBody_Enhanced(pl.LightningModule):
             water_s = self._encode_water_with_gvp(
                 protein_batch, water_mask, water_node_indices, water_x_s, water_x_v
             )
-            # print(f"[Debug] Water GVP encoding successful: {water_s.shape if water_s is not None else 'None'}")
+            print(f"[Debug] Water GVP encoding successful: {water_s.shape if water_s is not None else 'None'}")
         except Exception as e:
             print(f"[Debug] Water GVP encoding failed: {e}")
             # Fallback: use simple embedding for water
             water_s = torch.zeros(water_x_s.size(0), self.hparams.protein_hidden_dims[0], device=self.device)
-            # print(f"[Debug] Using fallback water embedding: {water_s.shape}")
+            print(f"[Debug] Using fallback water embedding: {water_s.shape}")
         
         # Handle None case
         if water_s is None:
-            # print("[Debug] Water_s is None, using fallback")
+            print("[Debug] Water_s is None, using fallback")
             water_s = torch.zeros(water_x_s.size(0), self.hparams.protein_hidden_dims[0], device=self.device)
         
         # Add protein context to water through cross-attention
@@ -498,7 +501,7 @@ class AFFModel_ThreeBody_Enhanced(pl.LightningModule):
                 water_s = self._add_protein_context_to_water(
                     water_s, prot_s, protein_batch, water_mask, protein_mask
                 )
-                # print(f"[Debug] Added protein context to water: {water_s.shape}")
+                print(f"[Debug] Added protein context to water: {water_s.shape}")
             except Exception as e:
                 print(f"[Debug] Failed to add protein context to water: {e}")
         
@@ -614,9 +617,10 @@ class AFFModel_ThreeBody_Enhanced(pl.LightningModule):
         """Hierarchical: (P+W) -> complex -> interact with L"""
         embed_dim = self.hparams.protein_hidden_dims[0]
         
-        # print(f"[Debug] Hierarchical interaction - P: {p.shape}, W: {w.shape}, L: {l.shape}")
+        print(f"[Debug] Hierarchical interaction - P: {p.shape}, W: {w.shape}, L: {l.shape}")
         
         # Step 1: Protein-Water interaction (if both exist)
+        
         if p.size(0) > 0 and w.size(0) > 0:
             print("[Debug] Both protein and water present - computing P-W interaction")
             # Cross-attention between protein and water
