@@ -54,7 +54,8 @@ class ProteinFeaturizer:
 
         edge_index = torch_cluster.knn_graph(X_all_coords, k=min(self.top_k, X_all_coords.size(0)-1) if X_all_coords.size(0)>1 else 0 )
         E_vectors = X_all_coords[edge_index[0]] - X_all_coords[edge_index[1]] if edge_index.numel() > 0 else torch.empty((0,3))
-        edge_v = _normalize_torch(E_vectors) if E_vectors.numel() > 0 else torch.empty((0,3))
+        edge_v_2D = _normalize_torch(E_vectors) if E_vectors.numel() > 0 else torch.empty((0,3))
+        edge_v = edge_v_2D.unsqueeze(1) if edge_v_2D.numel() > 0 else torch.empty((0,1,3))
         edge_dist = E_vectors.norm(dim=-1) if E_vectors.numel() > 0 else torch.empty((0))
         
         rbf_features = get_rbf(edge_dist, D_count=16, device=edge_index.device) if edge_dist.numel() > 0 else torch.empty((0,16))
@@ -71,6 +72,7 @@ class ProteinFeaturizer:
         # print("edge_index:", edge_index[:,:5])
         # print("edge_s:", edge_s[:5])
         # print("edge_v:", edge_v[:5])
+        edge_index=edge_index.long()
         return Data(
             x=X_all_coords, node_type=node_type,
             node_s=torch.nan_to_num(node_s), node_v=torch.nan_to_num(node_v),
@@ -83,7 +85,8 @@ class ProteinFeaturizer:
  
         X_res_all_coords = stack_residue_coordinates(protein) # All atom coordinates for all residues
         if X_res_all_coords.numel() == 0 and not protein.read_water: # Handle empty protein
-             return Data(x=torch.empty(0,3), node_type=torch.empty(0, dtype=torch.long), node_s=torch.empty(0,6), node_v=torch.empty(0,2,3,3), edge_index=torch.empty(2,0), edge_s=torch.empty(0,32), edge_v=torch.empty(0,3))
+             return None 
+            #  return Data(x=torch.empty(0,3), node_type=torch.empty(0, dtype=torch.long), node_s=torch.empty(0,6), node_v=torch.empty(0,2,3,3), edge_index=torch.empty(2,0), edge_s=torch.empty(0,32), edge_v=torch.empty(0,3))
  
         X_res_ca = X_res_all_coords[1::3] if X_res_all_coords.size(0) >=2 else X_res_all_coords # CA atoms
         
@@ -117,7 +120,8 @@ class ProteinFeaturizer:
             X_all_coords = torch.cat([X_res_ca, X_water_coords], dim=0)
         
         if X_all_coords.numel() == 0: # Handle case where cropping results in no atoms
-            return Data(x=torch.empty(0,3), node_type=torch.empty(0, dtype=torch.long), node_s=torch.empty(0,6), node_v=torch.empty(0,2,3,3), edge_index=torch.empty(2,0), edge_s=torch.empty(0,32), edge_v=torch.empty(0,3))
+            return None
+            # return Data(x=torch.empty(0,3), node_type=torch.empty(0, dtype=torch.long), node_s=torch.empty(0,6), node_v=torch.empty(0,2,3,3), edge_index=torch.empty(2,0), edge_s=torch.empty(0,32), edge_v=torch.empty(0,3))
 
         # Node types
         node_type_res = torch.zeros(X_res_ca.size(0), dtype=torch.long)
@@ -162,16 +166,23 @@ class ProteinFeaturizer:
             node_v = torch.cat([node_v_res, node_v_water], dim=0)
 
         # == Edges ==
-        edge_index = torch_cluster.knn_graph(X_all_coords, k=min(self.top_k, X_all_coords.size(0)-1) if X_all_coords.size(0)>1 else 0)
+        # edge_index = torch_cluster.knn_graph(X_all_coords, k=min(self.top_k, X_all_coords.size(0)-1) if X_all_coords.size(0)>1 else 0)
+        if X_all_coords.size(0) > 1 and self.top_k > 0:
+            k = min(self.top_k, X_all_coords.size(0) - 1)
+            edge_index = torch_cluster.knn_graph(X_all_coords, k=k)
+        else:
+            return None
         E_vectors = X_all_coords[edge_index[0]] - X_all_coords[edge_index[1]] if edge_index.numel() > 0 else torch.empty((0,3))
-        edge_v = _normalize_torch(E_vectors) if E_vectors.numel() > 0 else torch.empty((0,3))
+        edge_v_2D = _normalize_torch(E_vectors) if E_vectors.numel() > 0 else torch.empty((0,3))
+        edge_v = edge_v_2D.unsqueeze(1) if edge_v_2D.numel() > 0 else torch.empty((0,1,3))
+
         edge_dist = E_vectors.norm(dim=-1) if E_vectors.numel() > 0 else torch.empty((0))
 
         rbf_features = get_rbf(edge_dist, D_count=rbf_D_count, device=edge_index.device) if edge_dist.numel() > 0 else torch.empty((0,16))
         pos_emb_features = get_positional_embeddings(edge_index, num_embeddings=positional_emb_dim) if edge_index.numel() > 0 else torch.empty((0,16))
         edge_s = torch.cat([rbf_features, pos_emb_features], dim=-1)
         
-        # print (f"X_all_coords: {X_all_coords.shape}, node_type: {node_type.shape}, node_s: {node_s.shape}, node_v: {node_v.shape}, edge_index: {edge_index.shape}, edge_s: {edge_s.shape}, edge_v: {edge_v.shape}")
+        # print(f"X_all_coords: {X_all_coords.shape}, node_type: {node_type.shape}, node_s: {node_s.shape}, node_v: {node_v.shape}, edge_index: {edge_index.shape}, edge_s: {edge_s.shape}, edge_v: {edge_v.shape}")
         # printing first few rows of each tensor for debugging
         # print("First few rows of tensors:")
         # print("X_all_coords:", X_all_coords[:5])
@@ -181,6 +192,8 @@ class ProteinFeaturizer:
         # print("edge_index:", edge_index[:,:5])
         # print("edge_s:", edge_s[:5])
         # print("edge_v:", edge_v[:5])
+        edge_index=edge_index.long()
+        
         return Data(
             x=X_all_coords, node_type=node_type,
             node_s=torch.nan_to_num(node_s), node_v=torch.nan_to_num(node_v),
@@ -316,7 +329,10 @@ class ProteinFeaturizer:
         # Edges / reminder: X_all is now concatenated from residues, water, and virtual nodes, cropped
         edge_index = torch_cluster.knn_graph(X_all, k=min(self.top_k, X_all.size(0)-1) if X_all.size(0)>1 else 0)
         E_vectors = X_all[edge_index[0]] - X_all[edge_index[1]] if edge_index.numel() > 0 else torch.empty((0,3))
-        edge_v = _normalize_torch(E_vectors) if E_vectors.numel() > 0 else torch.empty((0,3))
+        # edge_v = _normalize_torch(E_vectors) if E_vectors.numel() > 0 else torch.empty((0,3))
+        edge_v_2D = _normalize_torch(E_vectors) if E_vectors.numel() > 0 else torch.empty((0,3))
+        edge_v = edge_v_2D.unsqueeze(1) if edge_v_2D.numel() > 0 else torch.empty((0,1,3))
+
         edge_dist = E_vectors.norm(dim=-1) if E_vectors.numel() > 0 else torch.empty((0))
         
         rbf_features = get_rbf(edge_dist, D_count=rbf_D_count, device=edge_index.device) if edge_dist.numel() > 0 else torch.empty((0,16))

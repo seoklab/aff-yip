@@ -89,7 +89,11 @@ class RLADataset(Dataset):
                     protein_water_graph = self.protein_featurizer.featurize_graph_with_water(protein_w_obj, center=center, crop_size=self.crop_size)
                     
                     ligand_graph = self.ligand_featurizer.featurize_graph(ligand_obj)
+                    # if any of the graphs are None, skip this sample
                     if not self.skip_virtual:
+                        if protein_virtual_graph is None or protein_water_graph is None or protein_only_graph is None or ligand_graph is None:
+                            print(f"[Warning] Skipped {name}: One or more graphs could not be created.")
+                            continue
                         self.samples.append({
                             'name': name,
                             'protein_virtual': protein_virtual_graph, # Protein graph + water + virtual nodes
@@ -99,6 +103,9 @@ class RLADataset(Dataset):
                             'affinity': affinity,
                         })
                     else:
+                        if protein_water_graph is None or protein_only_graph is None or ligand_graph is None:
+                            print(f"[Warning] Skipped {name}: One or more graphs could not be created.")
+                            continue
                         self.samples.append({
                             'name': name,
                             'protein_water': protein_water_graph, # Protein graph + water
@@ -150,9 +157,16 @@ class RLADataset(Dataset):
     def __len__(self):
         return len(self.samples)
 
+    # def __getitem__(self, idx):
+    #     return self.samples[idx]
     def __getitem__(self, idx):
-        return self.samples[idx]
-
+        try:
+            sample = self.samples[idx]
+            return sample
+        except Exception as e:
+            print(f"[Dataset] Skipping sample {idx} due to error: {e}")
+            return None
+        
 if __name__ == '__main__':
     # Example usage
     ProteinDataset = RLADataset(data_path='.', mode='train')

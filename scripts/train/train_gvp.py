@@ -6,6 +6,7 @@ from pytorch_lightning.loggers import WandbLogger
 import wandb
 
 from src.model.basic import AFFModel_GVP
+from src.model.basic_three import AFFModel_ThreeBody 
 from src.data.datamodule import RLADataModule
 
 
@@ -17,6 +18,7 @@ def main(args):
         os.environ["WANDB_MODE"] = "disabled"
 
     wandb_logger = WandbLogger(
+        mode = 'online',
         name=args.run_name,
         project=args.project,
         save_dir=args.output_dir,
@@ -37,17 +39,30 @@ def main(args):
     )
 
     # === Model
-    model = AFFModel_GVP(
-        protein_node_dims=(args.protein_scalar_dim, args.protein_vector_dim),
-        protein_edge_dims=(args.protein_edge_scalar_dim, args.protein_edge_vector_dim),
-        ligand_node_dims=(args.ligand_scalar_dim, 0),
-        ligand_edge_dims=(args.ligand_edge_scalar_dim, 0),
-        protein_hidden_dims=(args.hidden_scalar_dim, args.hidden_vector_dim),
-        ligand_hidden_dims=(args.hidden_scalar_dim, 0),
-        num_gvp_layers=args.num_gvp_layers,
-        dropout=args.dropout,
-        lr=args.learning_rate
-    )
+    if args.model_type == 'three_body':
+        model = AFFModel_ThreeBody(
+            protein_node_dims=(args.protein_scalar_dim, args.protein_vector_dim),
+            protein_edge_dims=(args.protein_edge_scalar_dim, args.protein_edge_vector_dim),
+            ligand_node_dims=(args.ligand_scalar_dim, 0),
+            ligand_edge_dims=(args.ligand_edge_scalar_dim, 0),
+            protein_hidden_dims=(args.hidden_scalar_dim, args.hidden_vector_dim),
+            ligand_hidden_dims=(args.hidden_scalar_dim, 0),
+            num_gvp_layers=args.num_gvp_layers,
+            dropout=args.dropout,
+            lr=args.learning_rate
+        )
+    else:
+        model = AFFModel_GVP(
+            protein_node_dims=(args.protein_scalar_dim, args.protein_vector_dim),
+            protein_edge_dims=(args.protein_edge_scalar_dim, args.protein_edge_vector_dim),
+            ligand_node_dims=(args.ligand_scalar_dim, 0),
+            ligand_edge_dims=(args.ligand_edge_scalar_dim, 0),
+            protein_hidden_dims=(args.hidden_scalar_dim, args.hidden_vector_dim),
+            ligand_hidden_dims=(args.hidden_scalar_dim, 0),
+            num_gvp_layers=args.num_gvp_layers,
+            dropout=args.dropout,
+            lr=args.learning_rate
+        )
 
     # === Callbacks
     checkpoint_callback = ModelCheckpoint(
@@ -68,15 +83,31 @@ def main(args):
     # === Trainer
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
-        callbacks=[checkpoint_callback, early_stop_callback],
+        callbacks=[checkpoint_callback], #, early_stop_callback],
         logger=wandb_logger,
-        log_every_n_steps=10,
+        log_every_n_steps=1,
         accelerator='auto',
         devices=args.devices
     )
 
-    trainer.fit(model, data_module)
-    trainer.test(model, datamodule=data_module)
+    debugger = pl.Trainer(
+        limit_train_batches=3,
+        limit_val_batches=3,
+        limit_test_batches=3,
+        max_epochs=args.max_epochs,
+        logger=False,
+        enable_checkpointing=False,
+        log_every_n_steps=1,
+        accelerator='auto',
+        devices=args.devices
+    )
+    if args.debug:
+        # Run a single epoch for debugging
+        debugger.fit(model, data_module)
+        return
+    else: 
+        trainer.fit(model, data_module)
+        trainer.test(model, datamodule=data_module)
 
 
 if __name__ == '__main__':
@@ -89,14 +120,16 @@ if __name__ == '__main__':
     general.add_argument('--disable_wandb', action='store_true')
     general.add_argument('--project', type=str, default='protein-ligand-affinity')
     general.add_argument('--run_name', type=str, default='gvp_affinity_run')
-
+    general.add_argument('--model_type', type=str, choices=['gvp', 'three_body'], default='gvp',
+                         help='Model type to use: "gvp" for GVP model, "three_body" for three-body model')
+    general.add_argument('--debug', action='store_true', help='Enable debugging mode with reduced epochs and batch size')
     # === Data
     data = parser.add_argument_group('Data')
     data.add_argument('--data_path', type=str, default='.')
     data.add_argument('--train_data_path', type=str, default='data/train.json')
-    data.add_argument('--valid_data_path', type=str, default='data/valid.json')
+    data.add_argument('--valid_data_path', type=str, default='data/val.json')
     data.add_argument('--test_data_path', type=str, default='data/test.json')
-    data.add_argument('--batch_size', type=int, default=4)
+    data.add_argument('--batch_size', type=int, default=1)
     data.add_argument('--num_workers', type=int, default=4)
     data.add_argument('--top_k', type=int, default=30)
     data.add_argument('--crop_size', type=int, default=30)
