@@ -141,12 +141,17 @@ class GVPGraphEncoderHybrid(nn.Module):
     
     def forward(self, x_s, x_v, edge_index, edge_s, edge_v):
         # Convert zero vector inputs to minimal vectors
-        if self.node_vectors_were_zero:
+        # if self.node_vectors_were_zero:
+        #     x_v = torch.zeros(x_s.size(0), 1, 3, device=x_s.device, dtype=x_s.dtype)
+        
+        # if self.edge_vectors_were_zero:
+        #     edge_v = torch.zeros(edge_s.size(0), 1, 3, device=edge_s.device, dtype=edge_s.dtype)
+        # Validate at runtime — more robust than relying on constructor assumption
+        if x_v.size(1) == 0:
             x_v = torch.zeros(x_s.size(0), 1, 3, device=x_s.device, dtype=x_s.dtype)
-        
-        if self.edge_vectors_were_zero:
-            edge_v = torch.zeros(edge_s.size(0), 1, 3, device=edge_s.device, dtype=edge_s.dtype)
-        
+
+        if edge_v.size(1) == 0:
+            edge_v = torch.zeros(edge_s.size(0), 1, 3, device=edge_s.device, dtype=edge_s.dtype) 
         # Normal GVP forward pass
         x = (x_s, x_v)
         x = self.input_proj(x)

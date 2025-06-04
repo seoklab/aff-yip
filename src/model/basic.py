@@ -15,7 +15,7 @@ class AFFModel_GVP(pl.LightningModule):
                  ligand_hidden_dims=(128, 0),   # ligand output has no vector features
                  num_gvp_layers=3,
                  dropout=0.1,
-                 ):
+                 lr=1e-3):
         super().__init__()
         self.save_hyperparameters()
 
@@ -104,6 +104,13 @@ class AFFModel_GVP(pl.LightningModule):
             name = batch['name'][i] if 'name' in batch and i < len(batch['name']) else f"{stage}_sample_{i}"
             self.print(f"[{stage}] {name}: True Aff = {true:.3f}, Predicted = {pred:.3f}")
 
+    def custom_loss_fn(self, y_pred, y_true):
+        """
+        Custom loss function that can be modified later.
+        Currently uses MSELoss, but can be extended to include other metrics.
+        """
+        return self.loss_fn(y_pred, y_true)
+    
     def training_step(self, batch, batch_idx):
         y_pred, y = self(batch)
         loss = self.loss_fn(y_pred, y)
@@ -192,6 +199,19 @@ class AFFModel_GVP_Debug(pl.LightningModule):
             
             lig_s, lig_v = self.ligand_encoder(lx_s, lx_v_dummy, ligand_batch.edge_index, le_s, le_v_dummy)
             
+            if not self.training: # Only log during validation/testing
+                # For overall batch tensors (if you want to see the whole batch output)
+                if prot_s.numel() > 0: # Check if tensor is not empty
+                    print(f"VALIDATION: prot_s mean: {prot_s.mean().item():.4f}, std: {prot_s.std().item():.4f}, min: {prot_s.min().item():.4f}, max: {prot_s.max().item():.4f}")
+                else:
+                    print("VALIDATION: prot_s is empty")
+                    
+                if lig_s.numel() > 0:
+                    print(f"VALIDATION: lig_s mean: {lig_s.mean().item():.4f}, std: {lig_s.std().item():.4f}, min: {lig_s.min().item():.4f}, max: {lig_s.max().item():.4f}")
+                else:
+                    print("VALIDATION: lig_s is empty")
+
+
             # Rest of forward pass...
             prot_batch_sizes = torch.bincount(protein_batch.batch).tolist()
             lig_batch_sizes = torch.bincount(ligand_batch.batch).tolist()
