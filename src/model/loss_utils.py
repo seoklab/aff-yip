@@ -2,6 +2,95 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class WeightedCategoryLoss_v2(nn.Module):
+    def __init__(self,
+                 thresholds=None,
+                 category_weights=None,
+                 regression_weight=0.7,
+                 category_penalty_weight=0.2,
+                 extreme_penalty_weight=0.1,
+                 pearson_penalty_weight=0.0,
+                 relative_error_weight=0.0,
+                 extreme_boost_low=1.0,
+                 extreme_boost_high=1.7):
+        super().__init__()
+
+        self.thresholds = torch.tensor(thresholds) if thresholds is not None else torch.tensor(
+            [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0])
+        self.category_weights = torch.tensor(category_weights) if category_weights is not None else torch.ones(12)
+
+        # Normalize weights (optional soft tuning)
+        self.category_weights = self.category_weights / self.category_weights.min()
+
+        self.regression_weight = regression_weight
+        self.category_penalty_weight = category_penalty_weight
+        self.extreme_penalty_weight = extreme_penalty_weight
+        self.pearson_penalty_weight = pearson_penalty_weight
+        self.relative_error_weight = relative_error_weight
+
+        self.extreme_boost_low = extreme_boost_low
+        self.extreme_boost_high = extreme_boost_high
+
+        self.mse_loss = nn.MSELoss(reduction='none')
+        self.data_mean = 6.495
+        self.data_std = 1.833
+
+    def get_category(self, affinity):
+        thresholds = self.thresholds.to(affinity.device)
+        return torch.searchsorted(thresholds, affinity, right=False)
+
+    def pearson_corr(self, x, y):
+        vx = x - torch.mean(x)
+        vy = y - torch.mean(y)
+        corr = torch.sum(vx * vy) / (torch.norm(vx) * torch.norm(vy) + 1e-8)
+        return corr
+
+    def forward(self, pred_aff, target_aff, pred_logits=None):
+        mse_loss = self.mse_loss(pred_aff, target_aff)
+
+        # Category-based weights
+        target_categories = self.get_category(target_aff)
+        base_weights = self.category_weights.to(pred_aff.device)[target_categories]
+
+        # Extreme boost
+        extreme_weights = torch.ones_like(target_aff)
+        extreme_weights[target_aff < 4.0] = self.extreme_boost_low
+        extreme_weights[target_aff > 9.0] = self.extreme_boost_high
+        total_weights = base_weights * extreme_weights
+
+        weighted_reg_loss = (mse_loss * total_weights).mean()
+
+        # Category distance penalty (ordinal soft penalty)
+        pred_categories = self.get_category(pred_aff)
+        category_distance = torch.abs(target_categories.float() - pred_categories.float()).mean()
+
+        # Extreme preservation
+        extreme_mask = (target_aff < 4.5) | (target_aff > 8.5)
+        extreme_penalty = torch.tensor(0.0, device=pred_aff.device)
+        if extreme_mask.any():
+            pred_distance = torch.abs(pred_aff[extreme_mask] - self.data_mean)
+            target_distance = torch.abs(target_aff[extreme_mask] - self.data_mean)
+            extreme_penalty = torch.relu(target_distance - pred_distance).mean()
+
+        # Pearson penalty (for ranking signal)
+        pearson_penalty = 1.0 - self.pearson_corr(pred_aff, target_aff)
+
+        # Relative error penalty
+        rel_error = (torch.abs(pred_aff - target_aff) / (target_aff + 1e-3)).mean()
+
+        total_loss = (
+            self.regression_weight * weighted_reg_loss +
+            self.category_penalty_weight * category_distance +
+            self.extreme_penalty_weight * extreme_penalty +
+            self.pearson_penalty_weight * pearson_penalty +
+            self.relative_error_weight * rel_error
+        )
+
+        return total_loss, weighted_reg_loss, category_distance, extreme_penalty, pearson_penalty
 
 class WeightedCategoryLoss(nn.Module):
     """
@@ -33,8 +122,9 @@ class WeightedCategoryLoss(nn.Module):
         self.extreme_boost_low = extreme_boost_low
         self.extreme_boost_high = extreme_boost_high
         
-        self.mse_loss = nn.MSELoss(reduction='none')
-        
+        # self.mse_loss = nn.MSELoss(reduction='none')
+        self.mse_loss = nn.HuberLoss(reduction='none', delta=1.0)
+
         # Data statistics for extreme penalty
         self.data_mean = 6.495
         self.data_std = 1.833
@@ -84,8 +174,8 @@ class WeightedCategoryLoss(nn.Module):
         # === Classification Loss ===
         cls_loss = torch.tensor(0.0, device=pred_aff.device)
         if pred_logits is not None:
-            cls_loss = F.cross_entropy(pred_logits, target_categories, weight=self.category_weights.to(pred_logits.device))
-            total_loss += 0.2 * cls_loss  # optional scaling factor for classification
+            cls_loss = F.cross_entropy(pred_logits, target_categories, weight=self.category_weights.to(pred_logits.device), label_smoothing=0.1)
+        #     total_loss += 0.2 * cls_loss  # optional scaling factor for classification
 
         return total_loss, weighted_reg_loss, category_distance, extreme_penalty, cls_loss
 

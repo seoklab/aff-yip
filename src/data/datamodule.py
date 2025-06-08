@@ -10,6 +10,15 @@ import torch
 
 from .dataset_gvp import RLADataset # Or appropriate import
 
+def _log_bad_samples(names, path='bad_samples.txt'):
+    """Append bad sample names to a file"""
+    try:
+        with open(path, 'a') as f:
+            for name in names:
+                f.write(f"{name}\n")
+    except Exception as log_err:
+        print(f"[Logger] Failed to write to {path}: {log_err}")
+
 class RLADataModule(pl.LightningDataModule):
     def __init__(self,
                  data_path: str = None, # Root path for actual PDB/ligand files, used by RLADataset
@@ -106,24 +115,32 @@ class RLADataModule(pl.LightningDataModule):
         processed_meta_list = []
         
         # Define all file path keys from your JSON structure that need path joining
-        file_path_keys_from_json = ['pdb_file_biolip', 'pdb_file_db', 'ligand_pdb', 'ligand_mol2']
+        file_path_keys_from_json = ['pdb_file_biolip', 'pdb_file_db', 'ligand_mol2']
         
         # Define all keys considered essential for an entry to be valid.
         # If any of these are missing, the entry is skipped.
         essential_keys_from_json = [
             'name', 'pdb_file_biolip', 'pdb_file_db', 
-            'ligand_pdb', 'ligand_mol2', 
+            'ligand_mol2', 
             'affinity', 'receptor_chain', 'center' 
         ] # 'err_flag' is checked separately
 
         for index, item_in_json in enumerate(raw_meta_list):
             # 1. Check for err_flag first
             if item_in_json.get('err_flag', False):
-                print(f"[Info] Skipping item {item_in_json.get('name', index)} from '{json_filepath}' due to err_flag=True.")
+                # print(f"[Info] Skipping item {item_in_json.get('name', index)} from '{json_filepath}' due to err_flag=True.")
                 continue
-            if 'rna' in item_in_json.get('name', '').lower():
-                print(f"[Info] Skipping item {item_in_json.get('name', index)} because name contains 'rna'.")
+            name = item_in_json.get('name', '')
+            if 'rna' in name.lower():
+                # print(f"[Info] Skipping item {name} because name contains 'rna'.")
                 continue
+            if 'dna' in name.lower():
+                # print(f"[Info] Skipping item {name} because name contains 'dna'.")
+                continue
+            if name.islower():
+                # print(f"[Info] Skipping item {name} because name is all lower case.")
+                continue
+                   
 
             # 2. Check for presence of all essential keys
             missing_keys = [k for k in essential_keys_from_json if k not in item_in_json]
@@ -184,7 +201,7 @@ class RLADataModule(pl.LightningDataModule):
             raise ValueError(f"Unsupported metadata file format: {ext} for {meta_filepath}. Please use .csv or .json.")
 
     @staticmethod
-    def safe_collate_fn(batch):
+    def safe_collate_fn(batch, error_log_path='bad_samples.txt'):
         batch = [x for x in batch if x is not None]
         if len(batch) == 0:
             return None
@@ -192,20 +209,30 @@ class RLADataModule(pl.LightningDataModule):
         collated = {}
         for key in batch[0].keys():
             values = [sample[key] for sample in batch]
+
             if isinstance(values[0], torch_geometric.data.Data):
                 try:
                     collated[key] = Batch.from_data_list(values)
                 except Exception as e:
-                    print(f"[Collate] Skipping batch key '{key}' due to error: {e}")
+                    names = [getattr(d, 'name', f"<no_name_{i}>") for i, d in enumerate(values)]
+                    print(f"[Collate] Skipping batch for key '{key}' due to DataList error: {e}")
+                    print(f"         Affected samples: {names}")
+                    _log_bad_samples(names, error_log_path)
                     return None
+            elif isinstance(values[0], str):
+                collated[key] = values
             else:
                 try:
                     collated[key] = torch.tensor(values)
                 except Exception as e:
-                    print(f"[Collate] Error stacking key '{key}': {e}")
+                    print(f"[Collate] Skipping batch for key '{key}' due to tensor error: {e}")
+                    print(f"         Values: {values}")
+                    names = [getattr(sample['ligand'], 'name', f"<no_name_{i}>") for i, sample in batch if 'ligand' in sample]
+                    print(f"         Affected sample names: {names}")
+                    _log_bad_samples(names, error_log_path)
                     return None
         return collated
-    
+        
     def setup(self, stage: str = None):
         # ... (setup logic remains the same, it will use the loaded targets)
         if stage == 'fit' or stage is None:
@@ -459,55 +486,6 @@ class DebugRLADataModule(pl.LightningDataModule):
             print(f"Test dataset size: {len(self.test_dataset)}")
         print("="*50)
 
-
-# Additional debugging utilities
-def debug_batch_shapes(batch):
-    """Debug function to print shapes of all tensors in a batch"""
-    print("\n=== BATCH SHAPE DEBUGGING ===")
-    
-    if batch is None:
-        print("Batch is None!")
-        return
-    
-    print(f"Batch keys: {list(batch.keys())}")
-    
-    for key, value in batch.items():
-        if hasattr(value, 'shape'):
-            print(f"{key}: {value.shape}")
-        elif hasattr(value, '__len__'):
-            print(f"{key}: length {len(value)}")
-        else:
-            print(f"{key}: {type(value)}")
-        
-        # Special handling for PyG Data objects
-        if hasattr(value, 'x') or hasattr(value, 'edge_index'):
-            print(f"  └─ PyG Data object:")
-            for attr in ['x', 'edge_index', 'edge_attr', 'node_s', 'node_v', 'edge_s', 'edge_v', 'node_type', 'batch']:
-                if hasattr(value, attr):
-                    attr_value = getattr(value, attr)
-                    if hasattr(attr_value, 'shape'):
-                        print(f"     {attr}: {attr_value.shape}")
-                    elif attr_value is not None:
-                        print(f"     {attr}: {type(attr_value)}")
-
-
-def quick_debug_setup(original_datamodule, debug_samples=3):
-    """Quick setup function for debugging"""
-    debug_dm = DebugRLADataModule(
-        original_datamodule=original_datamodule,
-        debug_samples=debug_samples,
-        debug_batch_size=1,
-        debug_num_workers=0
-    )
-    
-    debug_dm.print_debug_info()
-    
-    # Try to get a single batch
-    batch = debug_dm.debug_single_batch('train')
-    if batch:
-        debug_batch_shapes(batch)
-    
-    return debug_dm, batch
 
 
 if __name__ == "__main__":

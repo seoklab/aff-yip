@@ -56,7 +56,7 @@ class RLADataset(Dataset):
                         print(f"[Warning] Skipped {name}: Missing PDB or ligand file path.")
                         continue
 
-                    protein_w_obj = Protein(pdb_filepath=pdbfile_raw, read_water=True, read_ligand=False, read_chain=[receptor_chain] if receptor_chain else None)
+                    protein_w_obj = Protein(pdb_filepath=pdbfile_raw, read_water=True, read_ligand=False, read_chain=[receptor_chain] if receptor_chain else [])
                     protein_obj = Protein(pdb_filepath=pdbfile, read_water=False, read_ligand=False)
                     ligand_obj = Ligand(mol2_filepath=ligfile, drop_H=False)
                     # protein graph with virtual nodes and water
@@ -89,6 +89,7 @@ class RLADataset(Dataset):
                     protein_water_graph = self.protein_featurizer.featurize_graph_with_water(protein_w_obj, center=center, crop_size=self.crop_size)
                     
                     ligand_graph = self.ligand_featurizer.featurize_graph(ligand_obj)
+                    # ligand_graph.name = name 
                     # if any of the graphs are None, skip this sample
                     if not self.skip_virtual:
                         if protein_virtual_graph is None or protein_water_graph is None or protein_only_graph is None or ligand_graph is None:
@@ -162,9 +163,12 @@ class RLADataset(Dataset):
     def __getitem__(self, idx):
         try:
             sample = self.samples[idx]
+            sample.pop('name', None)  # Remove 'name' key if it exists
+            # for key, value in sample.items():
+            #     print(f"[{idx}] Key: {key}, Type: {type(value)}, Dtype: {getattr(value, 'dtype', None)}")
             return sample
         except Exception as e:
-            print(f"[Dataset] Skipping sample {idx} due to error: {e}")
+            # print(f"[Dataset] Skipping sample {idx} due to error: {e}")
             return None
         
 if __name__ == '__main__':

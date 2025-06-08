@@ -112,7 +112,7 @@ class GVPGraphEncoderHybrid(nn.Module):
                  num_layers=3,
                  drop_rate=0.1):
         super().__init__()
-        
+
         self.original_node_dims = node_dims
         self.original_edge_dims = edge_dims
         self.original_hidden_dims = hidden_dims
@@ -147,6 +147,7 @@ class GVPGraphEncoderHybrid(nn.Module):
         # if self.edge_vectors_were_zero:
         #     edge_v = torch.zeros(edge_s.size(0), 1, 3, device=edge_s.device, dtype=edge_s.dtype)
         # Validate at runtime — more robust than relying on constructor assumption
+        
         if x_v.size(1) == 0:
             x_v = torch.zeros(x_s.size(0), 1, 3, device=x_s.device, dtype=x_s.dtype)
 

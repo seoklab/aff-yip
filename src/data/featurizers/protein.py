@@ -82,7 +82,6 @@ class ProteinFeaturizer:
 
     def featurize_graph_with_water(self, protein: Protein, center=None, crop_size=None,
                                    rbf_D_count:int = 16, positional_emb_dim: int =16) -> Data:
- 
         X_res_all_coords = stack_residue_coordinates(protein) # All atom coordinates for all residues
         if X_res_all_coords.numel() == 0 and not protein.read_water: # Handle empty protein
              return None 
