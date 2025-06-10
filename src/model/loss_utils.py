@@ -16,13 +16,12 @@ class WeightedCategoryLoss_v2(nn.Module):
                  pearson_penalty_weight=0.0,
                  relative_error_weight=0.0,
                  extreme_boost_low=1.0,
-                 extreme_boost_high=1.7):
+                 extreme_boost_high=1.0):
         super().__init__()
 
         self.thresholds = torch.tensor(thresholds) if thresholds is not None else torch.tensor(
             [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0])
-        self.category_weights = torch.tensor(category_weights) if category_weights is not None else torch.ones(12)
-
+        self.category_weights = torch.tensor(category_weights) if category_weights is not None else torch.ones(self.thresholds.size(0) + 1)
         # Normalize weights (optional soft tuning)
         self.category_weights = self.category_weights / self.category_weights.min()
 
@@ -58,8 +57,10 @@ class WeightedCategoryLoss_v2(nn.Module):
 
         # Extreme boost
         extreme_weights = torch.ones_like(target_aff)
-        extreme_weights[target_aff < 4.0] = self.extreme_boost_low
-        extreme_weights[target_aff > 9.0] = self.extreme_boost_high
+        lower_threshold = self.thresholds[0].item() if self.thresholds.numel() > 0 else 4.0
+        upper_threshold = self.thresholds[-1].item() if self.thresholds.numel() > 0 else 9.0
+        extreme_weights[target_aff < lower_threshold] = self.extreme_boost_low
+        extreme_weights[target_aff > upper_threshold] = self.extreme_boost_high
         total_weights = base_weights * extreme_weights
 
         weighted_reg_loss = (mse_loss * total_weights).mean()

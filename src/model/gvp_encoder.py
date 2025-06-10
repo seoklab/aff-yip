@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 from src.gvp import GVPConvLayer, LayerNorm, Dropout, GVP
+from typing import Tuple, Optional, Union
 
 class GVPGraphEncoder(nn.Module):
     """
@@ -99,82 +100,264 @@ class GVPGraphEncoder(nn.Module):
             return (x_s_final, x_v_dummy)
 
 
-# Alternative: Hybrid approach that uses minimal vector dimensions
 class GVPGraphEncoderHybrid(nn.Module):
     """
-    Hybrid encoder that converts zero-vector cases to minimal vectors
-    to avoid GVP issues while still using the GVP architecture
+    Enhanced hybrid encoder that handles zero-vector cases with improved efficiency
+    and better error handling for GVP architectures.
+    
+    Key improvements over the original:
+    - More robust dimension validation
+    - Better memory efficiency for zero vector cases
+    - Cleaner output dimension handling
+    - Optional minimal vector injection for stability
     """
     def __init__(self, 
-                 node_dims=(6, 3),         
-                 edge_dims=(32, 1),        
-                 hidden_dims=(128, 16),    
-                 num_layers=3,
-                 drop_rate=0.1):
+                 node_dims: Tuple[int, int] = (6, 3),         
+                 edge_dims: Tuple[int, int] = (32, 1),        
+                 hidden_dims: Tuple[int, int] = (128, 16),    
+                 num_layers: int = 3,
+                 drop_rate: float = 0.1,
+                 minimal_vector_noise: float = 1e-6,
+                 preserve_zero_output: bool = True):
+        """
+        Args:
+            node_dims: (scalar_features, vector_features) for nodes
+            edge_dims: (scalar_features, vector_features) for edges  
+            hidden_dims: (scalar_features, vector_features) for hidden layers
+            num_layers: number of GVP conv layers
+            drop_rate: dropout probability
+            minimal_vector_noise: small noise added to minimal vectors for numerical stability
+            preserve_zero_output: whether to return zero vectors when input had zero vectors
+        """
         super().__init__()
 
         self.original_node_dims = node_dims
         self.original_edge_dims = edge_dims
         self.original_hidden_dims = hidden_dims
+        self.minimal_vector_noise = minimal_vector_noise
+        self.preserve_zero_output = preserve_zero_output
         
         # Convert zero dimensions to minimal dimensions for GVP compatibility
         self.gvp_node_dims = (node_dims[0], max(1, node_dims[1]))
         self.gvp_edge_dims = (edge_dims[0], max(1, edge_dims[1]))  
         self.gvp_hidden_dims = (hidden_dims[0], max(1, hidden_dims[1]))
         
-        # Build with minimal dimensions
+        # Track which dimensions were originally zero for efficient processing
+        self.node_vectors_zero = node_dims[1] == 0
+        self.edge_vectors_zero = edge_dims[1] == 0
+        self.hidden_vectors_zero = hidden_dims[1] == 0
+        
+        # Build network with GVP-compatible dimensions
         self.input_proj = GVP(self.gvp_node_dims, self.gvp_hidden_dims)
         
         self.layers = nn.ModuleList([
-            GVPConvLayer(self.gvp_hidden_dims, self.gvp_edge_dims,
-                         drop_rate=drop_rate)
+            GVPConvLayer(
+                self.gvp_hidden_dims, 
+                self.gvp_edge_dims,
+                drop_rate=drop_rate
+            )
             for _ in range(num_layers)
         ])
         
         self.norm = LayerNorm(self.gvp_hidden_dims)
         self.dropout = Dropout(drop_rate)
         
-        # Track which dimensions were originally zero
-        self.node_vectors_were_zero = node_dims[1] == 0
-        self.edge_vectors_were_zero = edge_dims[1] == 0
-        self.output_vectors_should_be_zero = hidden_dims[1] == 0
+        # Cache for minimal vectors to avoid repeated allocation
+        self._node_minimal_cache = None
+        self._edge_minimal_cache = None
     
-    def forward(self, x_s, x_v, edge_index, edge_s, edge_v):
-        # Convert zero vector inputs to minimal vectors
-        # if self.node_vectors_were_zero:
-        #     x_v = torch.zeros(x_s.size(0), 1, 3, device=x_s.device, dtype=x_s.dtype)
+    def _get_minimal_vectors(self, 
+                           batch_size: int, 
+                           vector_dim: int, 
+                           device: torch.device, 
+                           dtype: torch.dtype,
+                           cache_key: str) -> torch.Tensor:
+        """
+        Get minimal vectors with optional caching and small noise for numerical stability.
+        """
+        cache_attr = f"_{cache_key}_minimal_cache"
+        cached = getattr(self, cache_attr, None)
         
-        # if self.edge_vectors_were_zero:
-        #     edge_v = torch.zeros(edge_s.size(0), 1, 3, device=edge_s.device, dtype=edge_s.dtype)
-        # Validate at runtime — more robust than relying on constructor assumption
+        # Check if we can reuse cached tensor
+        if (cached is not None and 
+            cached.shape[0] >= batch_size and 
+            cached.device == device and 
+            cached.dtype == dtype):
+            result = cached[:batch_size]
+        else:
+            # Create new minimal vectors
+            if self.minimal_vector_noise > 0:
+                result = torch.randn(batch_size, vector_dim, 3, 
+                                   device=device, dtype=dtype) * self.minimal_vector_noise
+            else:
+                result = torch.zeros(batch_size, vector_dim, 3, 
+                                   device=device, dtype=dtype)
+            
+            # Update cache if beneficial (avoid caching very large tensors)
+            if batch_size <= 10000:  # reasonable cache size limit
+                setattr(self, cache_attr, result.clone())
         
-        if x_v.size(1) == 0:
-            x_v = torch.zeros(x_s.size(0), 1, 3, device=x_s.device, dtype=x_s.dtype)
-
+        return result
+    
+    def _prepare_inputs(self, x_s, x_v, edge_s, edge_v):
+        """
+        Prepare inputs by converting zero-dimensional vectors to minimal vectors.
+        """
+        # Handle node vectors
+        if x_v.size(1) == 0:  # Runtime check is more robust
+            x_v = self._get_minimal_vectors(
+                x_s.size(0), 1, x_s.device, x_s.dtype, "node"
+            )
+        
+        # Handle edge vectors  
         if edge_v.size(1) == 0:
-            edge_v = torch.zeros(edge_s.size(0), 1, 3, device=edge_s.device, dtype=edge_s.dtype) 
-        # Normal GVP forward pass
-        x = (x_s, x_v)
-        x = self.input_proj(x)
-        edge_attr = (edge_s, edge_v)
+            edge_v = self._get_minimal_vectors(
+                edge_s.size(0), 1, edge_s.device, edge_s.dtype, "edge"
+            )
+            
+        return x_v, edge_v
+    
+    def _prepare_output(self, x: Tuple[torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Prepare output by converting back to zero vectors if needed.
+        """
+        x_s, x_v = x
         
+        if self.preserve_zero_output and self.hidden_vectors_zero:
+            # Return zero-dimensional vectors to match expected output
+            x_v_zero = torch.zeros(x_s.size(0), 0, 3, device=x_s.device, dtype=x_s.dtype)
+            return (x_s, x_v_zero)
+        
+        return (x_s, x_v)
+    
+    def forward(self, 
+                x_s: torch.Tensor, 
+                x_v: torch.Tensor, 
+                edge_index: torch.Tensor, 
+                edge_s: torch.Tensor, 
+                edge_v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass with automatic zero vector handling.
+        
+        Args:
+            x_s: Node scalar features [N, node_scalar_dim]
+            x_v: Node vector features [N, node_vector_dim, 3] 
+            edge_index: Edge connectivity [2, E]
+            edge_s: Edge scalar features [E, edge_scalar_dim]
+            edge_v: Edge vector features [E, edge_vector_dim, 3]
+            
+        Returns:
+            Tuple of (scalar_features, vector_features)
+        """
+        # Validate input shapes
+        assert x_s.dim() == 2, f"Expected x_s to be 2D, got {x_s.dim()}D"
+        assert x_v.dim() == 3, f"Expected x_v to be 3D, got {x_v.dim()}D"
+        assert x_v.size(-1) == 3, f"Expected last dim of x_v to be 3, got {x_v.size(-1)}"
+        
+        # Prepare inputs - convert zero vectors to minimal vectors
+        x_v_processed, edge_v_processed = self._prepare_inputs(x_s, x_v, edge_s, edge_v)
+        
+        # Standard GVP forward pass
+        x = (x_s, x_v_processed)
+        x = self.input_proj(x)
+        edge_attr = (edge_s, edge_v_processed)
+        
+        # Apply GVP convolution layers
         for layer in self.layers:
             x = layer(x, edge_index, edge_attr)
         
+        # Final normalization and dropout
         x = self.norm(self.dropout(x))
         
-        # Convert output back to zero vectors if needed
-        if self.output_vectors_should_be_zero:
-            x_v_zero = torch.zeros(x[0].size(0), 0, 3, device=x[0].device, dtype=x[0].dtype)
-            x = (x[0], x_v_zero)
+        # Prepare output - convert back to zero vectors if needed
+        return self._prepare_output(x)
+    
+    def get_output_dims(self) -> Tuple[int, int]:
+        """Get the actual output dimensions (accounting for zero vector conversion)."""
+        if self.preserve_zero_output and self.hidden_vectors_zero:
+            return (self.original_hidden_dims[0], 0)
+        return self.gvp_hidden_dims
+    
+    def reset_cache(self):
+        """Reset cached minimal vectors (useful for memory management)."""
+        self._node_minimal_cache = None
+        self._edge_minimal_cache = None
+
+
+class GVPGraphEncoderSafe(nn.Module):
+    """
+    Alternative safe encoder that uses pure scalar layers when vectors are zero.
+    This approach completely avoids GVP layers for zero-vector cases.
+    """
+    def __init__(self, 
+                 node_dims: Tuple[int, int] = (6, 3),         
+                 edge_dims: Tuple[int, int] = (32, 1),        
+                 hidden_dims: Tuple[int, int] = (128, 16),    
+                 num_layers: int = 3,
+                 drop_rate: float = 0.1):
+        super().__init__()
         
-        return x
+        self.node_dims = node_dims
+        self.edge_dims = edge_dims  
+        self.hidden_dims = hidden_dims
+        self.num_layers = num_layers
+        
+        # Check if we have any vector dimensions
+        self.has_vectors = (node_dims[1] > 0 or edge_dims[1] > 0 or hidden_dims[1] > 0)
+        
+        if self.has_vectors:
+            # Use standard GVP layers
+            self.input_proj = GVP(node_dims, hidden_dims)
+            self.layers = nn.ModuleList([
+                GVPConvLayer(hidden_dims, edge_dims, drop_rate=drop_rate)
+                for _ in range(num_layers)
+            ])
+            self.norm = LayerNorm(hidden_dims)
+        else:
+            # Use pure scalar layers - much more efficient for zero vector case
+            from torch_geometric.nn import GCNConv
+            
+            self.input_proj = nn.Linear(node_dims[0], hidden_dims[0])
+            self.layers = nn.ModuleList([
+                GCNConv(hidden_dims[0], hidden_dims[0])
+                for _ in range(num_layers)
+            ])
+            self.norm = nn.LayerNorm(hidden_dims[0])
+            
+        self.dropout = nn.Dropout(drop_rate)
+        self.activation = nn.ReLU()
+    
+    def forward(self, x_s, x_v, edge_index, edge_s, edge_v):
+        if self.has_vectors:
+            # Standard GVP path
+            x = (x_s, x_v)
+            x = self.input_proj(x)
+            edge_attr = (edge_s, edge_v)
+            
+            for layer in self.layers:
+                x = layer(x, edge_index, edge_attr)
+            
+            x = self.norm(self.dropout(x))
+            return x
+        else:
+            # Efficient scalar-only path
+            x = self.input_proj(x_s)
+            x = self.activation(x)
+            
+            for layer in self.layers:
+                x = layer(x, edge_index, edge_weight=edge_s.norm(dim=-1))
+                x = self.activation(x)
+            
+            x = self.norm(self.dropout(x))
+            
+            # Return in tuple format for consistency
+            zero_vectors = torch.zeros(x.size(0), 0, 3, device=x.device, dtype=x.dtype)
+            return (x, zero_vectors)
 
 
-# Test both approaches
 def test_zero_vector_solutions():
-    """Test both solutions for zero vector handling"""
-    print("=== Testing Zero Vector Solutions ===")
+    """Enhanced test function with more comprehensive validation."""
+    print("=== Testing Enhanced Zero Vector Solutions ===")
     
     # Test data for ligand (zero vectors)
     batch_size = 20
@@ -188,27 +371,68 @@ def test_zero_vector_solutions():
     print(f"Input shapes: x_s={x_s.shape}, x_v={x_v.shape}")
     print(f"Edge shapes: edge_s={edge_s.shape}, edge_v={edge_v.shape}")
     
-    # Test 1: Safe encoder (uses scalar layers for zero vector case)
-    print(f"\n--- Test 1: Safe Encoder ---")
+    # Test 1: Enhanced Hybrid encoder
+    print(f"\n--- Test 1: Enhanced Hybrid Encoder ---")
     try:
-        encoder1 = GVPGraphEncoder(
-            node_dims=(46, 0), edge_dims=(9, 0), hidden_dims=(128, 0), num_layers=2
+        encoder1 = GVPGraphEncoderHybrid(
+            node_dims=(46, 0), 
+            edge_dims=(9, 0), 
+            hidden_dims=(128, 0), 
+            num_layers=2,
+            preserve_zero_output=True
         )
         out1 = encoder1(x_s, x_v, edge_index, edge_s, edge_v)
-        print(f"✓ Safe encoder: s={out1[0].shape}, v={out1[1].shape}")
+        print(f"✓ Enhanced hybrid encoder: s={out1[0].shape}, v={out1[1].shape}")
+        print(f"  Output dims: {encoder1.get_output_dims()}")
+        
+        # Test memory efficiency
+        encoder1.reset_cache()
+        print(f"  Cache reset successful")
+        
+    except Exception as e:
+        print(f"✗ Enhanced hybrid encoder failed: {e}")
+    
+    # Test 2: Safe encoder
+    print(f"\n--- Test 2: Safe Encoder (Scalar-only) ---") 
+    try:
+        encoder2 = GVPGraphEncoderSafe(
+            node_dims=(46, 0), 
+            edge_dims=(9, 0), 
+            hidden_dims=(128, 0), 
+            num_layers=2
+        )
+        out2 = encoder2(x_s, x_v, edge_index, edge_s, edge_v)
+        print(f"✓ Safe encoder: s={out2[0].shape}, v={out2[1].shape}")
+        print(f"  Using vectors: {encoder2.has_vectors}")
+        
     except Exception as e:
         print(f"✗ Safe encoder failed: {e}")
     
-    # Test 2: Hybrid encoder (uses minimal vectors)
-    print(f"\n--- Test 2: Hybrid Encoder ---") 
-    try:
-        encoder2 = GVPGraphEncoderHybrid(
-            node_dims=(46, 0), edge_dims=(9, 0), hidden_dims=(128, 0), num_layers=2
-        )
-        out2 = encoder2(x_s, x_v, edge_index, edge_s, edge_v)
-        print(f"✓ Hybrid encoder: s={out2[0].shape}, v={out2[1].shape}")
-    except Exception as e:
-        print(f"✗ Hybrid encoder failed: {e}")
+    # Test 3: Performance comparison
+    print(f"\n--- Test 3: Performance Comparison ---")
+    import time
+    
+    # Warmup
+    for encoder in [encoder1, encoder2]:
+        for _ in range(5):
+            _ = encoder(x_s, x_v, edge_index, edge_s, edge_v)
+    
+    # Timing test
+    n_runs = 100
+    
+    start_time = time.time()
+    for _ in range(n_runs):
+        _ = encoder1(x_s, x_v, edge_index, edge_s, edge_v)
+    hybrid_time = time.time() - start_time
+    
+    start_time = time.time()
+    for _ in range(n_runs):
+        _ = encoder2(x_s, x_v, edge_index, edge_s, edge_v)
+    safe_time = time.time() - start_time
+    
+    print(f"Hybrid encoder: {hybrid_time:.4f}s ({hybrid_time/n_runs*1000:.2f}ms per run)")
+    print(f"Safe encoder: {safe_time:.4f}s ({safe_time/n_runs*1000:.2f}ms per run)")
+    print(f"Safe encoder is {hybrid_time/safe_time:.1f}x faster")
 
 if __name__ == "__main__":
     test_zero_vector_solutions()
