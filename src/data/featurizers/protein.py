@@ -9,7 +9,7 @@ from ..structures import Protein, Ligand, VirtualNode # For type hinting and Vir
 from .utils import (
     stack_residue_coordinates, get_residue_dihedrals, get_sidechain_orientation,
     get_backbone_orientation, _normalize_torch, get_rbf, get_positional_embeddings,
-    stack_water_coordinates, generate_virtual_nodes, get_water_embeddings
+    stack_water_coordinates, generate_virtual_nodes, get_water_embeddings, get_aa_one_hot
 )
 from ...io.write_pdb import write_virtual_nodes_pdb # Adjusted import for io
 
@@ -133,7 +133,12 @@ class ProteinFeaturizer:
         # Node scalar features
         node_s_all_residues = get_residue_dihedrals(X_res_all_coords)
         node_s_res = node_s_all_residues[keep_res_idx] if node_s_all_residues.numel() > 0 else torch.empty((0, node_s_all_residues.size(1) if node_s_all_residues.ndim > 1 else 6 ))
-
+        node_aa_features = get_aa_one_hot(protein) # One-hot encoding of amino acids
+        node_aa_features = node_aa_features[keep_res_idx] if node_aa_features is not None and node_aa_features.numel() > 0 else torch.empty((0, node_aa_features.size(1) if node_aa_features is not None else 20)) # Assuming 20 amino acids
+        # print (f"Node AA features shape: {node_aa_features.shape}") # Debugging line
+        # print (f"Node scalar features shape before concatenation: {node_s_res.shape}") # Debugging line
+        if node_aa_features is not None and node_aa_features.numel() > 0:
+            node_s_res = torch.cat([node_s_res, node_aa_features], dim=1) if node_s_res.numel() > 0 else node_aa_features
         node_s = node_s_res
         if has_water and X_water_coords.numel() > 0:
             num_res_scalar_feats = node_s_res.size(1) if node_s_res.numel() > 0 else 6 # Default to 6 if no residues
@@ -213,11 +218,9 @@ class ProteinFeaturizer:
     ) -> Data:
         X_res_all = stack_residue_coordinates(protein_w_water) # this already excludes water
         X_res_ca = X_res_all[1::3] 
-
         X_water= stack_water_coordinates(protein_w_water)
         has_water = X_water is not None and X_water.numel() > 0
-
-        virtual_nodes_list = generate_virtual_nodes(protein_wo_water, ligand)
+        virtual_nodes_list = generate_virtual_nodes(protein_wo_water, ligand, only_backbone=True) # clash N,CA,C,CB
         if virtual_nodes_list: # Check if list is not empty
             if target_name:
                 filepath = f'/home.galaxy4/j2ho/projects/aff-yip/vn_temp/{target_name}.pdb'
@@ -261,7 +264,7 @@ class ProteinFeaturizer:
         if has_water: X_all_coords_list.append(X_water)
         if X_virtual.numel() > 0: X_all_coords_list.append(X_virtual)
         if not X_all_coords_list or all(c.numel()==0 for c in X_all_coords_list): # All components are empty
-             return Data(x=torch.empty(0,3), node_type=torch.empty(0, dtype=torch.long), node_s=torch.empty(0,6), node_v=torch.empty(0,2,3,3), edge_index=torch.empty(2,0), edge_s=torch.empty(0,32), edge_v=torch.empty(0,3), feature_mask=torch.empty(0,6))
+            return Data(x=torch.empty(0,3), node_type=torch.empty(0, dtype=torch.long), node_s=torch.empty(0,6), node_v=torch.empty(0,2,3,3), edge_index=torch.empty(2,0), edge_s=torch.empty(0,32), edge_v=torch.empty(0,3), feature_mask=torch.empty(0,6))
         X_all = torch.cat(X_all_coords_list, dim=0) # Concatenate all coordinates
 
         # Node types
@@ -273,9 +276,15 @@ class ProteinFeaturizer:
         # Node scalar features
         node_s_all_residues = get_residue_dihedrals(X_res_all) # From original, uncropped full atom protein
         node_s_res = node_s_all_residues[keep_res_idx] if node_s_all_residues.numel() > 0 else torch.empty((0, node_s_all_residues.size(1) if node_s_all_residues.ndim > 1 else 6 ))
-        
+        node_aa_features = get_aa_one_hot(protein_wo_water) # One-hot encoding of amino acids
+        node_aa_features = node_aa_features[keep_res_idx] if node_aa_features is not None and node_aa_features.numel() > 0 else torch.empty((0, node_aa_features.size(1) if node_aa_features is not None else 20)) # Assuming 20 amino acids
+        # print (f"Node AA features shape: {node_aa_features.shape}") # Debugging line
+        # print (f"Node scalar features shape before concatenation: {node_s_res.shape}") # Debugging line
+        if node_aa_features is not None and node_aa_features.numel() > 0:
+            node_s_res = torch.cat([node_s_res, node_aa_features], dim=1) if node_s_res.numel() > 0 else node_aa_features
+        # print (f"Node scalar features shape: {node_s_res.shape}") # Debugging line
         node_s_list = [node_s_res]
-        num_scalar_features = node_s_res.size(1) if node_s_res.numel() > 0 else 6 # Default from dihedrals
+        num_scalar_features = node_s_res.size(1) # if node_s_res.numel() > 0 else 6 # Default from dihedrals
 
         if has_water > 0:
             node_s_water = get_water_embeddings(X_water, num_embeddings=num_scalar_features)
@@ -293,10 +302,14 @@ class ProteinFeaturizer:
 
             node_s_virtual_padding = torch.zeros(X_virtual.size(0), num_scalar_features - 1)
             node_s_virtual = torch.cat([virtual_occupancies, node_s_virtual_padding], dim=1)
+            # print (f"Node virtual features shape: {node_s_virtual.shape}") # Debugging line
+            # # Print only rows that are not all zero (first 5)
+            # nonzero_rows = (node_s_virtual.abs().sum(dim=1) != 0)
+            # print (f"Number of nonzero rows in node virtual features: {nonzero_rows.sum().item()}")
+            # print(f"Node virtual features (first 5 nonzero rows): {node_s_virtual[nonzero_rows]}")
             node_s_list.append(node_s_virtual)
         
         node_s = torch.cat([ns for ns in node_s_list if ns.numel() > 0], dim=0) if any(ns.numel() > 0 for ns in node_s_list) else torch.empty((0, num_scalar_features))
-
 
         # Node vector features (similar logic to scalar features for concatenation)
         sidechain = get_sidechain_orientation(X_res_all) # (num_residues, 3)
@@ -369,6 +382,165 @@ class ProteinFeaturizer:
         # print("edge_s:", edge_s[:5])
         # print("edge_v:", edge_v[:5])
         # Return Data object with all features
+        return Data(
+            x=X_all, node_type=node_type,
+            node_s=torch.nan_to_num(node_s), feature_mask=feature_mask,
+            node_v=torch.nan_to_num(node_v),
+            edge_s=torch.nan_to_num(edge_s), edge_v=torch.nan_to_num(edge_v),
+            edge_index=edge_index
+        )
+
+    def featurize_graph_with_only_virtual_nodes(
+        self,
+        protein_w_water: Protein, # This was 'protein_w' or 'protein' arg in dataset method
+        protein_wo_water: Protein,  # This was 'self.protein' from dataset
+        ligand: Ligand,    # This was 'self.ligand' from dataset
+        center=None,
+        crop_size=None,
+        target_name: str = None, # Optional target name for logging
+        rbf_D_count: int = 16, # Default RBF count
+        positional_emb_dim: int = 16 # Default positional embedding dimension
+    ) -> Data:
+        X_res_all = stack_residue_coordinates(protein_w_water) # this already excludes water
+        X_res_ca = X_res_all[1::3] 
+        X_water= stack_water_coordinates(protein_w_water)
+        has_water = X_water is not None and X_water.numel() > 0
+        virtual_nodes_list = generate_virtual_nodes(protein_wo_water, ligand, only_backbone=True) # clash N,CA,C,CB
+        if virtual_nodes_list: # Check if list is not empty
+            if target_name:
+                filepath = f'/home.galaxy4/j2ho/projects/aff-yip/vn_temp/{target_name}.pdb'
+                write_virtual_nodes_pdb(virtual_nodes_list, filepath=filepath, element='C', chain_id='X')
+            X_virtual = torch.from_numpy(np.stack([v.coordinates for v in virtual_nodes_list])).float()
+        else:
+            X_virtual = torch.empty((0,3), dtype=torch.float32)
+
+        # Water occupancy for virtual nodes (if applicable from your VirtualNode structure)
+        if has_water:
+            for v_node in virtual_nodes_list:
+                v_node.set_water_occupancy(X_water) 
+
+        # Initial indices
+        original_res_indices = torch.arange(X_res_ca.size(0))
+        original_virtual_indices = torch.arange(X_virtual.size(0))
+
+        # Cropping
+        if center is not None and crop_size is not None:
+            mask_res_ca = ((X_res_ca - center).abs() < crop_size / 2).all(dim=-1)
+            X_res_ca = X_res_ca[mask_res_ca]
+            keep_res_idx = original_res_indices[mask_res_ca]
+
+            if has_water:
+                mask_water = ((X_water- center).abs() < crop_size / 2).all(dim=-1)
+                X_water= X_water[mask_water]
+
+            if X_virtual.numel() > 0:
+                mask_virtual = ((X_virtual - center).abs() < crop_size / 2).all(dim=-1)
+                X_virtual = X_virtual[mask_virtual]
+                keep_virtual_idx = original_virtual_indices[mask_virtual]
+            else:
+                keep_virtual_idx = torch.empty((0,),dtype=torch.long)
+        else:
+            keep_res_idx = original_res_indices
+            keep_virtual_idx = original_virtual_indices # All virtual nodes kept
+
+        # Concatenate all coordinates for graph
+        X_all_coords_list = [X_res_ca]
+        if X_virtual.numel() > 0: X_all_coords_list.append(X_virtual)
+        X_all = torch.cat(X_all_coords_list, dim=0) # Concatenate all coordinates
+
+        # Node types
+        node_type_list = [torch.zeros(X_res_ca.size(0), dtype=torch.long)]
+        if X_virtual.numel() > 0: node_type_list.append(1 * torch.ones(X_virtual.size(0), dtype=torch.long))
+        node_type = torch.cat([nt for nt in node_type_list if nt.numel() > 0])
+
+        # Node scalar features
+        node_s_all_residues = get_residue_dihedrals(X_res_all) # From original, uncropped full atom protein
+        node_s_res = node_s_all_residues[keep_res_idx] if node_s_all_residues.numel() > 0 else torch.empty((0, node_s_all_residues.size(1) if node_s_all_residues.ndim > 1 else 6 ))
+        node_aa_features = get_aa_one_hot(protein_wo_water) # One-hot encoding of amino acids
+        node_aa_features = node_aa_features[keep_res_idx] if node_aa_features is not None and node_aa_features.numel() > 0 else torch.empty((0, node_aa_features.size(1) if node_aa_features is not None else 20)) # Assuming 20 amino acids
+        # print (f"Node AA features shape: {node_aa_features.shape}") # Debugging line
+        # print (f"Node scalar features shape before concatenation: {node_s_res.shape}") # Debugging line
+        if node_aa_features is not None and node_aa_features.numel() > 0:
+            node_s_res = torch.cat([node_s_res, node_aa_features], dim=1) if node_s_res.numel() > 0 else node_aa_features
+        # print (f"Node scalar features shape: {node_s_res.shape}") # Debugging line
+        node_s_list = [node_s_res]
+        num_scalar_features = node_s_res.size(1) # if node_s_res.numel() > 0 else 6 # Default from dihedrals
+
+        if X_virtual.numel() > 0:
+            # Virtual node scalar features: first is occupancy, rest are zeros
+            # This assumes virtual_nodes_list is now cropped or v.water_occupancy is indexed by keep_virtual_idx
+            cropped_virtual_nodes = [virtual_nodes_list[i] for i in keep_virtual_idx.tolist()] if virtual_nodes_list else []
+
+            if cropped_virtual_nodes and hasattr(cropped_virtual_nodes[0], 'water_occupancy'):
+                 virtual_occupancies = torch.tensor([v.water_occupancy for v in cropped_virtual_nodes], dtype=torch.float32).unsqueeze(-1)
+            else: # If no occupancy data, default to zeros ??? 
+                 virtual_occupancies = torch.zeros(X_virtual.size(0), 1, dtype=torch.float32)
+
+            node_s_virtual_padding = torch.zeros(X_virtual.size(0), num_scalar_features - 1)
+            node_s_virtual = torch.cat([virtual_occupancies, node_s_virtual_padding], dim=1)
+            node_s_list.append(node_s_virtual)
+        
+        node_s = torch.cat([ns for ns in node_s_list if ns.numel() > 0], dim=0) if any(ns.numel() > 0 for ns in node_s_list) else torch.empty((0, num_scalar_features))
+
+        # Node vector features (similar logic to scalar features for concatenation)
+        sidechain = get_sidechain_orientation(X_res_all) # (num_residues, 3)
+        sidechain = sidechain.unsqueeze(-2) # (num_residues, 1, 3)
+        backbone = get_backbone_orientation(X_res_all) # (num_residues, 2, 3)
+
+        if sidechain.numel() > 0 and backbone.numel() > 0 :
+             node_v_all_residues = torch.cat([sidechain, backbone], dim=-2)
+             node_v_res = node_v_all_residues[keep_res_idx]
+        elif sidechain.numel() > 0:
+             node_v_all_residues = sidechain
+             node_v_res = node_v_all_residues[keep_res_idx]
+        elif backbone.numel() > 0:
+             node_v_all_residues = backbone
+             node_v_res = node_v_all_residues[keep_res_idx]
+        else: 
+            node_v_res = torch.empty((0, 1, 3, 3), dtype=torch.float32) # tensor([], size=(0, 1, 3, 3))
+        
+        num_feats = node_v_res.size(1) # if node_v_res.numel() > 0 else default_orient_dim
+        feats_dim = node_v_res.size(2) # if node_v_res.numel() > 0 else default_vec_dim
+
+        node_v_list = [node_v_res]
+        if X_virtual.numel() > 0:
+            node_v_list.append(torch.zeros(X_virtual.size(0), num_feats, feats_dim)) # Virtual nodes have no orientation
+        node_v = torch.cat([nv for nv in node_v_list if nv.numel() > 0], dim=0) if any(nv.numel() > 0 for nv in node_v_list) else torch.empty((0, num_feats, feats_dim))
+        
+        # Edges / reminder: X_all is now concatenated from residues, water, and virtual nodes, cropped
+        edge_index = torch_cluster.knn_graph(X_all, k=min(self.top_k, X_all.size(0)-1) if X_all.size(0)>1 else 0)
+        E_vectors = X_all[edge_index[0]] - X_all[edge_index[1]] if edge_index.numel() > 0 else torch.empty((0,3))
+        # edge_v = _normalize_torch(E_vectors) if E_vectors.numel() > 0 else torch.empty((0,3))
+        edge_v_2D = _normalize_torch(E_vectors) if E_vectors.numel() > 0 else torch.empty((0,3))
+        edge_v = edge_v_2D.unsqueeze(1) if edge_v_2D.numel() > 0 else torch.empty((0,1,3))
+
+        edge_dist = E_vectors.norm(dim=-1) if E_vectors.numel() > 0 else torch.empty((0))
+        
+        rbf_features = get_rbf(edge_dist, D_count=rbf_D_count, device=edge_index.device) if edge_dist.numel() > 0 else torch.empty((0,16))
+        pos_emb_features = get_positional_embeddings(edge_index, num_embeddings=positional_emb_dim) if edge_index.numel() > 0 else torch.empty((0,16))
+        edge_s_geom = torch.cat([rbf_features, pos_emb_features], dim=-1)
+
+        # Edge types (protein-protein, protein-virtual, etc.)
+        num_node_categories = 3 # 0:protein, 1:virtual
+        edge_s = edge_s_geom
+        if edge_index.numel() > 0 and node_type.numel() > 0:
+            src_type = node_type[edge_index[0]]
+            dst_type = node_type[edge_index[1]]
+            edge_type_id = src_type * num_node_categories + dst_type # Max id will be num_node_categories*num_node_categories - 1
+            edge_type_onehot = F.one_hot(edge_type_id, num_classes=num_node_categories**2).float()
+            edge_s = torch.cat([edge_s_geom, edge_type_onehot], dim=-1)
+        else: # if no edges, edge_s might need to match expected feature dim if it includes edge_type_onehot
+            edge_s = torch.cat([edge_s_geom, torch.empty(edge_s_geom.size(0), num_node_categories**2)], dim=-1)
+
+
+        # Feature mask for Virtual Nodes
+        feature_mask = torch.ones_like(node_s)
+        if X_virtual.numel() > 0 and node_s.numel() > 0: # Only apply if virtual nodes and scalar features exist
+            num_virtual_nodes_in_graph = X_virtual.size(0)
+            # Ensure indexing doesn't go out of bounds if node_s became smaller than expected
+            if feature_mask.size(0) >= num_virtual_nodes_in_graph:
+                 feature_mask[-num_virtual_nodes_in_graph:, 1:] = 0 # Virtual nodes only have first scalar feature valid (occupancy)
+       
         return Data(
             x=X_all, node_type=node_type,
             node_s=torch.nan_to_num(node_s), feature_mask=feature_mask,

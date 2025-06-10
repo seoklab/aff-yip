@@ -11,6 +11,7 @@ AA_to_tip = {"ALA":"CB", "CYS":"SG", "ASP":"CG", "ASN":"CG", "GLU":"CD",
 AMINOACID = ['ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU',\
              'GLY', 'HIS', 'ILE', 'LEU', 'LYS', 'MET', 'PHE',\
              'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL']
+# Residue number to index mapping
 residuemap = dict([(AMINOACID[i], i) for i in range(len(AMINOACID))])
 NUCLEICACID = ['ADE','CYT','GUA','THY','URA'] #nucleic acids
 

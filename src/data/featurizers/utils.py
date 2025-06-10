@@ -14,6 +14,32 @@ from scipy.sparse.csgraph import connected_components
 
 from src.data.structures import Protein, Ligand, VirtualNode
 
+from src.data.featurizers.const import AA_to_tip, AMINOACID, METAL, NUCLEICACID
+
+aa_to_idx = {aa: i for i, aa in enumerate(AMINOACID)}
+
+def one_hot_encode_aminoacid(res_name):
+    vec = np.zeros(len(AMINOACID), dtype=np.float32)
+    idx = aa_to_idx.get(res_name, None)
+    if idx is not None:
+        vec[idx] = 1.0
+    return vec
+
+def get_aa_one_hot(protein:Protein) -> torch.Tensor:
+    """
+    Returns a tensor of shape (num_residues, num_amino_acids) with one-hot encoding
+    for each residue's amino acid type.
+    """
+    num_residues = len(protein.residues)
+    aa_one_hot = torch.zeros((num_residues, len(AMINOACID)), dtype=torch.float32)
+
+    for i, residue in enumerate(protein.residues):
+        if residue.is_ligand or residue.is_water:
+            continue  # Skip ligands and water residues
+        aa_one_hot[i] = torch.tensor(one_hot_encode_aminoacid(residue.res_name), dtype=torch.float32)
+
+    return aa_one_hot
+
 def get_water_embeddings(X_water, num_embeddings=16):
     # now just random embeddings
     return torch.rand(X_water.size(0), num_embeddings, dtype=torch.float32)
@@ -22,7 +48,6 @@ def get_rbf(D, D_min=0, D_max=20, D_count=16, device=None):
     D_mu = torch.linspace(D_min, D_max, D_count).to(device)
     D_sigma = (D_max - D_min) / D_count
     return torch.exp(-((D.unsqueeze(-1) - D_mu)**2) / (2 * D_sigma**2))
-
 
 def get_positional_embeddings(edge_index, num_embeddings=None):
     d = edge_index[0] - edge_index[1]  # or dst - src depending on convention
@@ -33,7 +58,6 @@ def get_positional_embeddings(edge_index, num_embeddings=None):
     )
     angles = d.unsqueeze(-1) * freqs
     return torch.cat([torch.sin(angles), torch.cos(angles)], dim=-1)
-
 
 def stack_residue_coordinates(protein_obj: Protein) -> torch.Tensor:
     num_residues = len(protein_obj.residues)
@@ -221,12 +245,19 @@ class GridOption:
 
 
 def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
-                  opt=None,
-                  gridout=None):
+                        only_backbone=False,
+                        opt=None,
+                        gridout=None):
     if opt is None:
         opt = GridOption(padding=6.0, gridsize=1.0, option='ligand', clash=1.8, shellsize=7.0)
-    xyzs_rec = receptor.get_coordinates()
+    if only_backbone: 
+        # xyzs_rec = stack_residue_coordinates(receptor)
+        xyzs_rec = receptor.get_ncaccb_coordinates() 
+    else: 
+        xyzs_rec = receptor.get_coordinates()
+
     xyzs_lig = ligand.get_coordinates()
+
     if opt.option == 'ligand':
         bmin = np.min(xyzs_lig[:,:]-opt.padding,axis=0)
         bmax = np.max(xyzs_lig[:,:]+opt.padding,axis=0)
@@ -238,7 +269,7 @@ def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
     imax = [int(bmax[k]/opt.gridsize)+1 for k in range(3)]
 
     grids = []
-    print("detected %d grid points..."%((imax[0]-imin[0])*(imax[1]-imin[1])*(imax[2]-imin[2])))
+    # print("detected %d grid points..."%((imax[0]-imin[0])*(imax[1]-imin[1])*(imax[2]-imin[2])))
     for ix in range(imin[0],imax[0]+1):
         for iy in range(imin[1],imax[1]+1):
             for iz in range(imin[2],imax[2]+1):
@@ -275,7 +306,7 @@ def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
     grids = grids[biggest]
 
     virtual_nodes = [VirtualNode(coord) for coord in grids]
-    print("Search through %d grid points, of %d contact grids %d clash -> %d, remove outlier -> %d"%(nfull,len(incl),len(excl),n1,len(grids)))
+    # print("Search through %d grid points, of %d contact grids %d clash -> %d, remove outlier -> %d"%(nfull,len(incl),len(excl),n1,len(grids)))
 
     if gridout is not None:
         for i,grid in enumerate(grids):
