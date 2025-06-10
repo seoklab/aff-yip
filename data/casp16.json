@@ -1,0 +1,2530 @@
+[
+  {
+    "name": "L1001",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1001/ligand_201_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1001/ligand_201_C_1.qh.mol2",
+    "affinity": 12.35477492,
+    "affinity_type": "Kd",
+    "center": [
+      -27.290250000000004,
+      20.626312499999997,
+      6.998656249999999
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1002",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1002/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1002/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1002/ligand_293_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1002/ligand_293_C_1.qh.mol2",
+    "affinity": 10.57634661,
+    "affinity_type": "Kd",
+    "center": [
+      -27.07043243243243,
+      21.693810810810813,
+      6.885405405405407
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1003",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1003/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1003/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1003/ligand_843_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1003/ligand_843_C_1.qh.mol2",
+    "affinity": 10.38302145,
+    "affinity_type": "Kd",
+    "center": [
+      -23.832225806451607,
+      23.425129032258063,
+      6.860774193548387
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1004",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1004/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1004/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1004/ligand_124_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1004/ligand_124_C_1.qh.mol2",
+    "affinity": 10.7151968,
+    "affinity_type": "Kd",
+    "center": [
+      -27.030399999999997,
+      21.543533333333336,
+      6.3805000000000005
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1005",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1005/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1005/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1005/ligand_868_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1005/ligand_868_C_1.qh.mol2",
+    "affinity": 10.44882773,
+    "affinity_type": "Kd",
+    "center": [
+      -26.97846666666667,
+      21.09499999999999,
+      6.517266666666667
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1006",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1006/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1006/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1006/ligand_646_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1006/ligand_646_C_1.qh.mol2",
+    "affinity": 11.06136532,
+    "affinity_type": "Kd",
+    "center": [
+      -27.620641025641024,
+      21.57989743589744,
+      7.596743589743592
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1007",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1007/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1007/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1007/ligand_092_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1007/ligand_092_C_1.qh.mol2",
+    "affinity": 9.115641308,
+    "affinity_type": "Kd",
+    "center": [
+      -26.899633333333334,
+      20.60443333333333,
+      6.7471999999999985
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1008",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1008/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1008/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1008/ligand_994_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1008/ligand_994_C_1.qh.mol2",
+    "affinity": 8.781578319,
+    "affinity_type": "Kd",
+    "center": [
+      -26.951225806451614,
+      20.93645161290322,
+      6.300774193548387
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1009",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1009/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1009/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1009/ligand_LIG_L_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1009/ligand_LIG_L_1.qh.mol2",
+    "affinity": 11.35982626,
+    "affinity_type": "Kd",
+    "center": [
+      57.628656249999985,
+      9.6083125,
+      -6.763937499999998
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1010",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1010/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1010/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1010/ligand_362_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1010/ligand_362_C_1.qh.mol2",
+    "affinity": 10.57769273,
+    "affinity_type": "Kd",
+    "center": [
+      -25.747702702702703,
+      21.65943243243243,
+      5.790567567567567
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1011",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1011/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1011/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1011/ligand_852_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1011/ligand_852_C_1.qh.mol2",
+    "affinity": 10.14157592,
+    "affinity_type": "Kd",
+    "center": [
+      -26.952733333333324,
+      20.905800000000003,
+      6.429666666666668
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1012",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1012/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1012/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1012/ligand_LIG_A_301.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1012/ligand_LIG_A_301.qh.mol2",
+    "affinity": 10.45276039,
+    "affinity_type": "Kd",
+    "center": [
+      18.185689655172418,
+      10.813275862068963,
+      32.54527586206897
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1013",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1013/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1013/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1013/ligand_075_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1013/ligand_075_C_1.qh.mol2",
+    "affinity": 10.27972411,
+    "affinity_type": "Kd",
+    "center": [
+      -26.1174090909091,
+      21.32702272727273,
+      6.673545454545453
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1014",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1014/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1014/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1014/ligand_592_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1014/ligand_592_C_1.qh.mol2",
+    "affinity": 10.17380323,
+    "affinity_type": "Kd",
+    "center": [
+      -26.06925,
+      22.01608333333333,
+      6.228416666666667
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1015",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1015/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1015/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1015/ligand_125_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1015/ligand_125_C_1.qh.mol2",
+    "affinity": 11.44816725,
+    "affinity_type": "Kd",
+    "center": [
+      -1.4761290322580647,
+      12.245,
+      1.183225806451613
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1016",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1016/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1016/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1016/ligand_979_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1016/ligand_979_C_1.qh.mol2",
+    "affinity": 10.767072,
+    "affinity_type": "Kd",
+    "center": [
+      -26.60132500000001,
+      19.593899999999998,
+      6.268025
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L1017",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L1000_prepared/L1017/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L1000_prepared/L1017/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L1000_prepared/L1017/ligand_043_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L1000_prepared/L1017/ligand_043_C_1.qh.mol2",
+    "affinity": 10.86472827,
+    "affinity_type": "Kd",
+    "center": [
+      -0.24643333333333317,
+      10.402966666666662,
+      4.276033333333333
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3001",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.395998582720297,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3003",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3003/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3003/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3003/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3003/ligand_L0R_B_1.qh.mol2",
+    "affinity": 10.610211796535024,
+    "affinity_type": "Kd",
+    "center": [
+      -13.357589743589743,
+      8.949076923076925,
+      44.13594871794872
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3009",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3009/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3009/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3009/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3009/ligand_L0R_B_1.qh.mol2",
+    "affinity": 12.061860746190218,
+    "affinity_type": "Kd",
+    "center": [
+      -11.379666666666667,
+      8.467404761904763,
+      47.447952380952366
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3019",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3019/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3019/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3019/ligand_L0R_B_2.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3019/ligand_L0R_B_2.qh.mol2",
+    "affinity": 10.73756811054188,
+    "affinity_type": "Kd",
+    "center": [
+      -18.222444444444438,
+      101.15024999999997,
+      154.78977777777783
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3019",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3019/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3019/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3019/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3019/ligand_L0R_B_1.qh.mol2",
+    "affinity": 10.73756811054188,
+    "affinity_type": "Kd",
+    "center": [
+      -12.193694444444445,
+      99.60827777777777,
+      163.47194444444446
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3021",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3021/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3021/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3021/ligand_L0R_E_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3021/ligand_L0R_E_1.qh.mol2",
+    "affinity": 11.85408957985962,
+    "affinity_type": "Kd",
+    "center": [
+      -11.112324999999998,
+      8.79285,
+      47.257149999999996
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3024",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3024/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3024/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3024/ligand_DRG_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3024/ligand_DRG_B_1.qh.mol2",
+    "affinity": 9.000697653996212,
+    "affinity_type": "Kd",
+    "center": [
+      -12.881030303030306,
+      8.533484848484848,
+      45.82721212121212
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3026",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3026/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3026/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3026/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3026/ligand_L0R_C_1.qh.mol2",
+    "affinity": 11.148804795301368,
+    "affinity_type": "Kd",
+    "center": [
+      -11.0939375,
+      9.92203125,
+      48.95996875
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3027",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3027/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3027/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3027/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3027/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.261974880404711,
+    "affinity_type": "Kd",
+    "center": [
+      -13.27290322580645,
+      9.478516129032256,
+      45.70019354838709
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3028",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3028/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3028/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3028/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3028/ligand_L0R_C_1.qh.mol2",
+    "affinity": 8.396681557898605,
+    "affinity_type": "Kd",
+    "center": [
+      -13.033899999999997,
+      7.833899999999999,
+      45.2011
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3031",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3031/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3031/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3031/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3031/ligand_L0R_B_1.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -12.06112,
+      7.78564,
+      45.3554
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3035",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3035/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3035/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3035/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3035/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.391943375241993,
+    "affinity_type": "Kd",
+    "center": [
+      -13.320758620689652,
+      8.944241379310345,
+      45.37251724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3037",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3037/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3037/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3037/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3037/ligand_L0R_B_1.qh.mol2",
+    "affinity": 11.0956050231655,
+    "affinity_type": "Kd",
+    "center": [
+      -12.38064516129032,
+      8.40716129032258,
+      47.187935483870966
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3038",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3038/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3038/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3038/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3038/ligand_L0R_C_1.qh.mol2",
+    "affinity": 10.027587887117528,
+    "affinity_type": "Kd",
+    "center": [
+      -12.920956521739134,
+      7.181695652173912,
+      45.050782608695656
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3039",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3039/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3039/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3039/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3039/ligand_L0R_C_1.qh.mol2",
+    "affinity": 9.673965291825729,
+    "affinity_type": "Kd",
+    "center": [
+      -12.898818181818179,
+      6.714954545454547,
+      44.74736363636363
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3042",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3042/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3042/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3042/ligand_L0R_A_1001.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3042/ligand_L0R_A_1001.qh.mol2",
+    "affinity": 9.478341062829765,
+    "affinity_type": "Kd",
+    "center": [
+      -13.4661,
+      8.690966666666666,
+      45.741333333333344
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3043",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3043/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3043/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3043/ligand_L0R_A_1001.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3043/ligand_L0R_A_1001.qh.mol2",
+    "affinity": 8.75800102153713,
+    "affinity_type": "Kd",
+    "center": [
+      -13.16288461538461,
+      7.766961538461539,
+      44.8763076923077
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3044",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3044/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3044/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3044/ligand_L0R_L_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3044/ligand_L0R_L_1.qh.mol2",
+    "affinity": 9.702396415713803,
+    "affinity_type": "Kd",
+    "center": [
+      -12.575079999999998,
+      7.823280000000002,
+      46.21732
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3045",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3045/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3045/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3045/ligand_L0R_L_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3045/ligand_L0R_L_1.qh.mol2",
+    "affinity": 10.710125018267236,
+    "affinity_type": "Kd",
+    "center": [
+      -12.75260714285714,
+      8.387250000000002,
+      46.847892857142845
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3047",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3047/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3047/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3047/ligand_L0R_B_1_B.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3047/ligand_L0R_B_1_B.qh.mol2",
+    "affinity": 12.023789251631234,
+    "affinity_type": "Kd",
+    "center": [
+      -11.284833333333333,
+      8.77613333333333,
+      48.74083333333333
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3047",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3047/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3047/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3047/ligand_L0R_B_1_A.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3047/ligand_L0R_B_1_A.qh.mol2",
+    "affinity": 12.023789251631234,
+    "affinity_type": "Kd",
+    "center": [
+      -11.342600000000001,
+      8.882466666666666,
+      48.603300000000004
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3049",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3049/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3049/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3049/ligand_CL_I_8.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3049/ligand_CL_I_8.qh.mol2",
+    "affinity": 11.397455591814827,
+    "affinity_type": "Kd",
+    "center": [
+      -13.177,
+      2.006,
+      46.386
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3049",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3049/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3049/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3049/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3049/ligand_L0R_B_1.qh.mol2",
+    "affinity": 11.397455591814827,
+    "affinity_type": "Kd",
+    "center": [
+      -12.7089,
+      8.922933333333333,
+      46.927866666666674
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3050",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3050/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3050/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3050/ligand_L0R_C_1_A.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3050/ligand_L0R_C_1_A.qh.mol2",
+    "affinity": 10.449214792306218,
+    "affinity_type": "Kd",
+    "center": [
+      -12.533181818181822,
+      7.38031818181818,
+      45.64054545454547
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3050",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3050/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3050/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3050/ligand_L0R_C_1_B.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3050/ligand_L0R_C_1_B.qh.mol2",
+    "affinity": 10.449214792306218,
+    "affinity_type": "Kd",
+    "center": [
+      -12.543000000000001,
+      7.379090909090908,
+      45.639636363636356
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3053",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3053/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3053/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3053/ligand_L0R_L_1_A.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3053/ligand_L0R_L_1_A.qh.mol2",
+    "affinity": 10.672175874781251,
+    "affinity_type": "Kd",
+    "center": [
+      -12.484266666666665,
+      9.1275,
+      47.60563333333334
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3053",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3053/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3053/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3053/ligand_L0R_L_1_B.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3053/ligand_L0R_L_1_B.qh.mol2",
+    "affinity": 10.672175874781251,
+    "affinity_type": "Kd",
+    "center": [
+      -12.741166666666668,
+      9.12383333333333,
+      47.59390000000001
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3053",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3053/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3053/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3053/ligand_CL_I_6.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3053/ligand_CL_I_6.qh.mol2",
+    "affinity": 10.672175874781251,
+    "affinity_type": "Kd",
+    "center": [
+      -13.142,
+      2.042,
+      46.821
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3054",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3054/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3054/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3054/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3054/ligand_L0R_B_1.qh.mol2",
+    "affinity": 10.13011050635152,
+    "affinity_type": "Kd",
+    "center": [
+      -12.55006896551724,
+      8.587,
+      46.98189655172414
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3056",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3056/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3056/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3056/ligand_L0R_E_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3056/ligand_L0R_E_1.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -12.829749999999999,
+      9.10745,
+      46.262150000000005
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3057",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3057/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3057/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3057/ligand_L0R_A_1001_A.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3057/ligand_L0R_A_1001_A.qh.mol2",
+    "affinity": 10.52611398533033,
+    "affinity_type": "Kd",
+    "center": [
+      -12.665370370370372,
+      7.917888888888888,
+      47.25151851851852
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3057",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3057/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3057/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3057/ligand_L0R_A_1001_B.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3057/ligand_L0R_A_1001_B.qh.mol2",
+    "affinity": 10.52611398533033,
+    "affinity_type": "Kd",
+    "center": [
+      -12.763740740740742,
+      7.898481481481482,
+      47.18385185185184
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3058",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3058/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3058/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3058/ligand_L0R_1_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3058/ligand_L0R_1_1.qh.mol2",
+    "affinity": 8.389784713877187,
+    "affinity_type": "Kd",
+    "center": [
+      -12.470757575757576,
+      7.038878787878787,
+      43.929272727272725
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3060",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3060/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3060/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3060/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3060/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.433904137484914,
+    "affinity_type": "Kd",
+    "center": [
+      13.084916666666665,
+      8.497416666666668,
+      -47.102624999999996
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3061",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3061/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3061/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3061/ligand_L0R_1_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3061/ligand_L0R_1_1.qh.mol2",
+    "affinity": 8.043438771589056,
+    "affinity_type": "Kd",
+    "center": [
+      -13.0983125,
+      8.482281250000002,
+      45.360937500000006
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3064",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3064/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3064/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3064/ligand_L0R_B_2.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3064/ligand_L0R_B_2.qh.mol2",
+    "affinity": 8.336821739563579,
+    "affinity_type": "Kd",
+    "center": [
+      -14.689055555555557,
+      12.515666666666666,
+      40.85794444444444
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3064",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3064/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3064/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3064/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3064/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.336821739563579,
+    "affinity_type": "Kd",
+    "center": [
+      -12.762333333333332,
+      6.207111111111111,
+      44.76705555555556
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3066",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3066/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3066/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3066/ligand_UNL_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3066/ligand_UNL_B_1.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -13.105363636363636,
+      7.366818181818181,
+      45.230318181818184
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3068",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3068/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3068/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3068/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3068/ligand_L0R_C_1.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -13.538124999999999,
+      8.386624999999997,
+      44.15989583333334
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3073",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3073/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3073/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3073/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3073/ligand_L0R_B_1.qh.mol2",
+    "affinity": 9.163481150739706,
+    "affinity_type": "Kd",
+    "center": [
+      -12.864954545454548,
+      6.751318181818181,
+      46.635590909090915
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3075",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3075/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3075/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3075/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3075/ligand_L0R_B_1.qh.mol2",
+    "affinity": 9.153737711644707,
+    "affinity_type": "Kd",
+    "center": [
+      -12.990555555555558,
+      10.101611111111113,
+      47.40294444444443
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3076",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3076/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3076/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3076/ligand_ACT_I_7.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3076/ligand_ACT_I_7.qh.mol2",
+    "affinity": 9.019598776037837,
+    "affinity_type": "Kd",
+    "center": [
+      -6.69775,
+      12.36025,
+      54.03325
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3076",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3076/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3076/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3076/ligand_L0R_B_1_B.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3076/ligand_L0R_B_1_B.qh.mol2",
+    "affinity": 9.019598776037837,
+    "affinity_type": "Kd",
+    "center": [
+      -12.240055555555555,
+      7.949638888888889,
+      48.63930555555555
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3076",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3076/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3076/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3076/ligand_L0R_B_1_A.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3076/ligand_L0R_B_1_A.qh.mol2",
+    "affinity": 9.019598776037837,
+    "affinity_type": "Kd",
+    "center": [
+      -12.25747222222222,
+      8.276694444444443,
+      48.647222222222226
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3077",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3077/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3077/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3077/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3077/ligand_L0R_C_1.qh.mol2",
+    "affinity": 9.454157415578338,
+    "affinity_type": "Kd",
+    "center": [
+      -10.68784375,
+      10.041218749999999,
+      50.185593749999995
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3079",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3079/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3079/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3079/ligand_L0R_B_1_B.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3079/ligand_L0R_B_1_B.qh.mol2",
+    "affinity": 10.931301545405704,
+    "affinity_type": "Kd",
+    "center": [
+      -12.838965517241379,
+      7.207689655172414,
+      45.903793103448294
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3079",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3079/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3079/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3079/ligand_L0R_B_1_A.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3079/ligand_L0R_B_1_A.qh.mol2",
+    "affinity": 10.931301545405704,
+    "affinity_type": "Kd",
+    "center": [
+      -12.577172413793106,
+      6.544551724137931,
+      46.467
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3080",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3080/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3080/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3080/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3080/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.650440841332946,
+    "affinity_type": "Kd",
+    "center": [
+      -13.044560000000004,
+      7.543280000000002,
+      46.23111999999999
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3081",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3081/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3081/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3081/ligand_UNL_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3081/ligand_UNL_B_1.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -12.997958333333331,
+      7.5691250000000005,
+      45.92154166666666
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3081",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3081/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3081/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3081/ligand_UNL_B_2.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3081/ligand_UNL_B_2.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -15.082833333333333,
+      13.528416666666663,
+      41.79720833333332
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3083",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3083/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3083/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3083/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3083/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.161645722463431,
+    "affinity_type": "Kd",
+    "center": [
+      -12.161523809523809,
+      5.4278571428571425,
+      42.270238095238085
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3087",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3087/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3087/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3087/ligand_L0R_E_1_A.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3087/ligand_L0R_E_1_A.qh.mol2",
+    "affinity": 8.26315372998884,
+    "affinity_type": "Kd",
+    "center": [
+      -13.124041666666665,
+      7.981041666666666,
+      44.92241666666666
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3087",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3087/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3087/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3087/ligand_L0R_E_1_B.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3087/ligand_L0R_E_1_B.qh.mol2",
+    "affinity": 8.26315372998884,
+    "affinity_type": "Kd",
+    "center": [
+      -13.039583333333331,
+      7.894541666666665,
+      45.15616666666667
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3090",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3090/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3090/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3090/ligand_L0R_1_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3090/ligand_L0R_1_1.qh.mol2",
+    "affinity": 10.059709424352349,
+    "affinity_type": "Kd",
+    "center": [
+      -11.674900000000001,
+      8.964766666666662,
+      48.40443333333335
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3095",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3095/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3095/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3095/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3095/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.22147201713899,
+    "affinity_type": "Kd",
+    "center": [
+      -12.869851851851852,
+      8.83174074074074,
+      45.42081481481482
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3096",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3096/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3096/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3096/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3096/ligand_L0R_B_1.qh.mol2",
+    "affinity": 9.42604513023785,
+    "affinity_type": "Kd",
+    "center": [
+      -12.413800000000002,
+      6.446960000000001,
+      45.932719999999996
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3099",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3099/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3099/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3099/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3099/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.640512810856396,
+    "affinity_type": "Kd",
+    "center": [
+      -12.3958125,
+      7.706812500000001,
+      44.361437499999994
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3101",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3101/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3101/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3101/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3101/ligand_L0R_B_1.qh.mol2",
+    "affinity": 7.3416673879581635,
+    "affinity_type": "Kd",
+    "center": [
+      -14.23752380952381,
+      11.015166666666667,
+      41.53480952380952
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3105",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3105/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3105/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3105/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3105/ligand_L0R_B_1.qh.mol2",
+    "affinity": 7.684791191401301,
+    "affinity_type": "Kd",
+    "center": [
+      -12.697999999999999,
+      7.099714285714284,
+      43.93738095238095
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3106",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3106/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3106/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3106/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3106/ligand_L0R_B_1.qh.mol2",
+    "affinity": 7.967764478836765,
+    "affinity_type": "Kd",
+    "center": [
+      -13.309473684210525,
+      6.9327894736842115,
+      46.548368421052636
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3109",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3109/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3109/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3109/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3109/ligand_L0R_B_1.qh.mol2",
+    "affinity": 9.908740446763726,
+    "affinity_type": "Kd",
+    "center": [
+      -15.142342857142859,
+      13.089057142857142,
+      43.18425714285714
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3111",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3111/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3111/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3111/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3111/ligand_L0R_C_1.qh.mol2",
+    "affinity": 10.10317794750321,
+    "affinity_type": "Kd",
+    "center": [
+      -12.487723076923075,
+      8.797707692307695,
+      45.797646153846145
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3114",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3114/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3114/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3114/ligand_RO4_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3114/ligand_RO4_B_1.qh.mol2",
+    "affinity": 9.28020760540887,
+    "affinity_type": "Kd",
+    "center": [
+      -12.948777777777776,
+      7.39348148148148,
+      45.680111111111124
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3115",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3115/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3115/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3115/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3115/ligand_L0R_B_1.qh.mol2",
+    "affinity": 10.036393029131062,
+    "affinity_type": "Kd",
+    "center": [
+      -13.509099999999995,
+      9.229700000000003,
+      47.86599999999999
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3120",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3120/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3120/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3120/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3120/ligand_L0R_B_1.qh.mol2",
+    "affinity": 9.294876864221976,
+    "affinity_type": "Kd",
+    "center": [
+      -12.800025000000002,
+      9.65085,
+      45.29802500000001
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3121",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3121/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3121/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3121/ligand_DMS_E_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3121/ligand_DMS_E_1.qh.mol2",
+    "affinity": 8.35749059899522,
+    "affinity_type": "Kd",
+    "center": [
+      -15.421750000000001,
+      13.602500000000001,
+      40.09925
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3121",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3121/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3121/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3121/ligand_L0R_D_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3121/ligand_L0R_D_1.qh.mol2",
+    "affinity": 8.35749059899522,
+    "affinity_type": "Kd",
+    "center": [
+      -12.82579487179487,
+      8.654487179487177,
+      45.41584615384615
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3126",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3126/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3126/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3126/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3126/ligand_L0R_B_1.qh.mol2",
+    "affinity": 11.253674400688736,
+    "affinity_type": "Kd",
+    "center": [
+      -11.274388888888891,
+      8.687388888888885,
+      48.309083333333334
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3127",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3127/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3127/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3127/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3127/ligand_L0R_B_1.qh.mol2",
+    "affinity": 10.884526412035177,
+    "affinity_type": "Kd",
+    "center": [
+      -11.231628571428573,
+      8.532314285714286,
+      48.45802857142858
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3130",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3130/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3130/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3130/ligand_L0R_A_1001_A.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3130/ligand_L0R_A_1001_A.qh.mol2",
+    "affinity": 9.825892364204734,
+    "affinity_type": "Kd",
+    "center": [
+      -12.479000000000001,
+      8.330518518518518,
+      46.940000000000005
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3130",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3130/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3130/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3130/ligand_L0R_A_1001_B.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3130/ligand_L0R_A_1001_B.qh.mol2",
+    "affinity": 9.825892364204734,
+    "affinity_type": "Kd",
+    "center": [
+      -12.409666666666668,
+      7.937518518518518,
+      47.32266666666666
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3131",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3131/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3131/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3131/ligand_L0R_A_1001.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3131/ligand_L0R_A_1001.qh.mol2",
+    "affinity": 11.89815013634028,
+    "affinity_type": "Kd",
+    "center": [
+      -12.514961538461536,
+      7.715807692307691,
+      46.27623076923078
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3132",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3132/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3132/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3132/ligand_ACT_D_3.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3132/ligand_ACT_D_3.qh.mol2",
+    "affinity": 11.4355958228473,
+    "affinity_type": "Kd",
+    "center": [
+      -5.680499999999999,
+      13.07025,
+      53.683
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3132",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3132/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3132/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3132/ligand_L0R_A_1001.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3132/ligand_L0R_A_1001.qh.mol2",
+    "affinity": 11.4355958228473,
+    "affinity_type": "Kd",
+    "center": [
+      -12.489275862068967,
+      8.124758620689654,
+      46.945620689655165
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3134",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3134/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3134/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3134/ligand_L0R_B_2.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3134/ligand_L0R_B_2.qh.mol2",
+    "affinity": 10.817465364923768,
+    "affinity_type": "Kd",
+    "center": [
+      -18.80173684210526,
+      14.038236842105265,
+      40.06889473684211
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3134",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3134/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3134/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3134/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3134/ligand_L0R_B_1.qh.mol2",
+    "affinity": 10.817465364923768,
+    "affinity_type": "Kd",
+    "center": [
+      -11.198342105263157,
+      8.62328947368421,
+      47.53052631578947
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3137",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3137/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3137/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3137/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3137/ligand_L0R_C_1.qh.mol2",
+    "affinity": 6.9684297480889175,
+    "affinity_type": "Kd",
+    "center": [
+      -11.957548387096775,
+      7.156387096774193,
+      45.06467741935485
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3138",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3138/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3138/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3138/ligand_L0R_B_2.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3138/ligand_L0R_B_2.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -16.014375,
+      10.553333333333335,
+      39.49858333333333
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3138",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3138/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3138/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3138/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3138/ligand_L0R_B_1.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -13.218333333333334,
+      8.325833333333334,
+      46.75704166666666
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3139",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3139/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3139/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3139/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3139/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.188946495464315,
+    "affinity_type": "Kd",
+    "center": [
+      -12.057909090909089,
+      7.104303030303029,
+      45.307727272727284
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3140",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3140/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3140/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3140/ligand_L0R_E_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3140/ligand_L0R_E_1.qh.mol2",
+    "affinity": 7.693766600811382,
+    "affinity_type": "Kd",
+    "center": [
+      -12.701875000000001,
+      8.165458333333333,
+      45.82983333333335
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3141",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3141/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3141/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3141/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3141/ligand_L0R_C_1.qh.mol2",
+    "affinity": 7.590496159609677,
+    "affinity_type": "Kd",
+    "center": [
+      -12.594580645161287,
+      8.705967741935481,
+      46.15332258064516
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3142",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3142/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3142/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3142/ligand_L0R_E_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3142/ligand_L0R_E_1.qh.mol2",
+    "affinity": 7.371988697571114,
+    "affinity_type": "Kd",
+    "center": [
+      -12.668916666666663,
+      7.126625,
+      44.73712500000001
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3143",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3143/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3143/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3143/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3143/ligand_L0R_B_1.qh.mol2",
+    "affinity": 10.060877966725505,
+    "affinity_type": "Kd",
+    "center": [
+      -12.742259259259258,
+      7.706,
+      45.72577777777777
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3144",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3144/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3144/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3144/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3144/ligand_L0R_B_1.qh.mol2",
+    "affinity": 8.85569774641385,
+    "affinity_type": "Kd",
+    "center": [
+      -12.523,
+      7.039241379310344,
+      44.595034482758635
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3145",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3145/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3145/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3145/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3145/ligand_L0R_B_1.qh.mol2",
+    "affinity": 9.90109995174182,
+    "affinity_type": "Kd",
+    "center": [
+      -11.380771428571427,
+      9.8662,
+      48.45971428571429
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3149",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3149/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3149/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3149/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3149/ligand_L0R_C_1.qh.mol2",
+    "affinity": 8.678878342910176,
+    "affinity_type": "Kd",
+    "center": [
+      -12.733500000000001,
+      7.140449999999999,
+      45.30915
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3150",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3150/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3150/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3150/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3150/ligand_L0R_C_1.qh.mol2",
+    "affinity": 7.826164527231205,
+    "affinity_type": "Kd",
+    "center": [
+      -12.757549999999998,
+      7.045999999999999,
+      45.223200000000006
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3151",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3151/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3151/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3151/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3151/ligand_L0R_B_1.qh.mol2",
+    "affinity": 11.037800554227733,
+    "affinity_type": "Kd",
+    "center": [
+      -10.97077142857143,
+      8.81417142857143,
+      49.28137142857141
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3154",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3154/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3154/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3154/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3154/ligand_L0R_B_1.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -12.41891304347826,
+      7.202608695652174,
+      45.348260869565216
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3156",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3156/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3156/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3156/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3156/ligand_L0R_B_1.qh.mol2",
+    "affinity": 7.208477644476114,
+    "affinity_type": "Kd",
+    "center": [
+      -12.817958333333335,
+      7.370374999999999,
+      45.169333333333334
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3157",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3157/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3157/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3157/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3157/ligand_L0R_C_1.qh.mol2",
+    "affinity": 10.306147299809975,
+    "affinity_type": "Kd",
+    "center": [
+      -12.885823529411766,
+      9.122911764705886,
+      47.97488235294117
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3158",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3158/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3158/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3158/ligand_L0R_E_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3158/ligand_L0R_E_1.qh.mol2",
+    "affinity": 10.062061751207512,
+    "affinity_type": "Kd",
+    "center": [
+      -12.608862068965518,
+      8.662275862068967,
+      46.33703448275861
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3159",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3159/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3159/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3159/ligand_L0R_E_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3159/ligand_L0R_E_1.qh.mol2",
+    "affinity": 7.876280589817346,
+    "affinity_type": "Kd",
+    "center": [
+      -12.478076923076925,
+      7.490807692307691,
+      45.67423076923077
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3160",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3160/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3160/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3160/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3160/ligand_L0R_B_1.qh.mol2",
+    "affinity": 7.4896361725364,
+    "affinity_type": "Kd",
+    "center": [
+      -13.302615384615384,
+      9.41526923076923,
+      41.88357692307692
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3162",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3162/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3162/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3162/ligand_L0R_E_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3162/ligand_L0R_E_1.qh.mol2",
+    "affinity": 7.620682941575394,
+    "affinity_type": "Kd",
+    "center": [
+      -13.132624999999999,
+      8.391666666666667,
+      46.97995833333332
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3165",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3165/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3165/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3165/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3165/ligand_L0R_B_1.qh.mol2",
+    "affinity": 11.84886296777064,
+    "affinity_type": "Kd",
+    "center": [
+      -11.43358974358974,
+      9.315435897435899,
+      48.42317948717949
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3170",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3170/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3170/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3170/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3170/ligand_L0R_C_1.qh.mol2",
+    "affinity": 10.307267766683784,
+    "affinity_type": "Kd",
+    "center": [
+      -14.408742857142855,
+      11.457628571428572,
+      44.80951428571429
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3171",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3171/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3171/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3171/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3171/ligand_L0R_B_1.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -14.31227777777778,
+      11.55372222222222,
+      44.556888888888885
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3177",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3177/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3177/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3177/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3177/ligand_L0R_C_1.qh.mol2",
+    "affinity": 9.85727578457932,
+    "affinity_type": "Kd",
+    "center": [
+      12.58760869565217,
+      7.263869565217392,
+      -45.54300000000001
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3183",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3183/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3183/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3183/ligand_L0R_F_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3183/ligand_L0R_F_1.qh.mol2",
+    "affinity": 8.369238953705313,
+    "affinity_type": "Kd",
+    "center": [
+      -14.604029411764703,
+      11.770411764705884,
+      43.61123529411765
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3184",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3184/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3184/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3184/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3184/ligand_L0R_C_1.qh.mol2",
+    "affinity": 11.101588974537211,
+    "affinity_type": "Kd",
+    "center": [
+      -13.01790625,
+      8.01321875,
+      44.368750000000006
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3186",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3186/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3186/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3186/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3186/ligand_L0R_B_1.qh.mol2",
+    "affinity": 11.956119010767017,
+    "affinity_type": "Kd",
+    "center": [
+      -11.242380952380952,
+      8.8202619047619,
+      47.25952380952381
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3188",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3188/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3188/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3188/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3188/ligand_L0R_B_1.qh.mol2",
+    "affinity": 9.012413563690462,
+    "affinity_type": "Kd",
+    "center": [
+      -14.23810810810811,
+      11.800540540540538,
+      44.19767567567567
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3189",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3189/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3189/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3189/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3189/ligand_L0R_B_1.qh.mol2",
+    "affinity": 9.768192434185051,
+    "affinity_type": "Kd",
+    "center": [
+      -14.392166666666665,
+      11.803194444444445,
+      43.90930555555555
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3190",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3190/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3190/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3190/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3190/ligand_L0R_C_1.qh.mol2",
+    "affinity": 6.894588400323512,
+    "affinity_type": "Kd",
+    "center": [
+      -13.155352941176474,
+      5.411823529411765,
+      44.79135294117648
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3192",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3192/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3192/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3192/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3192/ligand_L0R_C_1.qh.mol2",
+    "affinity": 6.862854869668753,
+    "affinity_type": "Kd",
+    "center": [
+      -13.110777777777779,
+      5.552611111111111,
+      45.242333333333335
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3194",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3194/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3194/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3194/ligand_L0R_C_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3194/ligand_L0R_C_1.qh.mol2",
+    "affinity": 8.924837209007663,
+    "affinity_type": "Kd",
+    "center": [
+      -12.597619047619048,
+      6.213285714285713,
+      44.88457142857142
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3196",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3196/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3196/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3196/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3196/ligand_L0R_B_1.qh.mol2",
+    "affinity": 11.502486878761786,
+    "affinity_type": "Kd",
+    "center": [
+      -11.273564102564102,
+      9.282666666666668,
+      48.65612820512821
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3197",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3197/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3197/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3197/ligand_L0R_B_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3197/ligand_L0R_B_1.qh.mol2",
+    "affinity": 11.394569445805809,
+    "affinity_type": "Kd",
+    "center": [
+      -11.883349999999997,
+      9.038975,
+      47.223825000000005
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3200",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3200/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3200/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": "/home/j2ho/DB/casp16/L3000_prepared/L3200/ligand_L0R_E_1.pdb",
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_prepared/L3200/ligand_L0R_E_1.qh.mol2",
+    "affinity": 9.0406098362428,
+    "affinity_type": "Kd",
+    "center": [
+      13.339472222222222,
+      8.96513888888889,
+      -44.046777777777784
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3202",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3202/ligand_L3202.qh.mol2",
+    "affinity": 9.8637549159109,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3203",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3203/ligand_L3203.qh.mol2",
+    "affinity": 10.629865525932695,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3204",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3204/ligand_L3204.qh.mol2",
+    "affinity": 8.599760111894177,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3205",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3205/ligand_L3205.qh.mol2",
+    "affinity": 8.098442301454426,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3206",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3206/ligand_L3206.qh.mol2",
+    "affinity": 10.948235863223871,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3207",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3207/ligand_L3207.qh.mol2",
+    "affinity": 10.397214745733894,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3208",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3208/ligand_L3208.qh.mol2",
+    "affinity": 10.319277278459545,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3209",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3209/ligand_L3209.qh.mol2",
+    "affinity": 9.10462035157252,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3210",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3210/ligand_L3210.qh.mol2",
+    "affinity": 11.310529687075904,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3211",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3211/ligand_L3211.qh.mol2",
+    "affinity": 11.028033854780956,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3212",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3212/ligand_L3212.qh.mol2",
+    "affinity": 11.13390356552017,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3213",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3213/ligand_L3213.qh.mol2",
+    "affinity": 12.269996713891548,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3214",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3214/ligand_L3214.qh.mol2",
+    "affinity": 12.233358146915275,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3215",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3215/ligand_L3215.qh.mol2",
+    "affinity": 8.561727184816192,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3216",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3216/ligand_L3216.qh.mol2",
+    "affinity": 11.694588158219524,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3217",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3217/ligand_L3217.qh.mol2",
+    "affinity": 11.615861895664771,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3218",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3218/ligand_L3218.qh.mol2",
+    "affinity": 11.98623395178017,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3219",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3219/ligand_L3219.qh.mol2",
+    "affinity": 11.312961804943436,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3220",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3220/ligand_L3220.qh.mol2",
+    "affinity": 10.531017889018749,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3221",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3221/ligand_L3221.qh.mol2",
+    "affinity": 10.835152426139446,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3222",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3222/ligand_L3222.qh.mol2",
+    "affinity": 9.065893011430251,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3223",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3223/ligand_L3223.qh.mol2",
+    "affinity": 11.363453863685942,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3224",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3224/ligand_L3224.qh.mol2",
+    "affinity": 9.476071428248602,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3225",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3225/ligand_L3225.qh.mol2",
+    "affinity": 11.327272929633189,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3226",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3226/ligand_L3226.qh.mol2",
+    "affinity": 9.675843554741649,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3227",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3227/ligand_L3227.qh.mol2",
+    "affinity": 9.870938798160896,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3228",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3228/ligand_L3228.qh.mol2",
+    "affinity": 10.078836760351503,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3229",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3229/ligand_L3229.qh.mol2",
+    "affinity": 11.593619251804023,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3230",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3230/ligand_L3230.qh.mol2",
+    "affinity": 10.603684345500728,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  },
+  {
+    "name": "L3231",
+    "pdb_file_biolip": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "pdb_file_db": "/home/j2ho/DB/casp16/L3000_prepared/L3001/protein_aligned.pdb",
+    "receptor_chain": null,
+    "ligand_pdb": null,
+    "ligand_mol2": "/home/j2ho/DB/casp16/L3000_nostr/L3231/ligand_L3231.qh.mol2",
+    "affinity": 7.01145802588226,
+    "affinity_type": "Kd",
+    "center": [
+      -13.250310344827584,
+      8.942758620689654,
+      45.28951724137931
+    ],
+    "err_flag": false
+  }
+]
