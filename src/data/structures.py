@@ -132,6 +132,22 @@ class Protein:
         xyz = [np.array(self.residues[i].get_coordinates(), dtype=np.float32) for i in range(len(self.residues))]
         xyz = np.concatenate(xyz)
         return xyz
+    
+    def get_ncaccb_coordinates(self):
+        """Get the coordinates of N, CA, C, CB atoms in the protein."""
+        ncaccb_coords = []
+        for residue in self.residues:
+            if residue.is_water or (self.excl_aa_types and residue.res_name in self.excl_aa_types):
+                continue
+            n_atom = residue.get_atom('N')
+            ca_atom = residue.get_ca()
+            c_atom = residue.get_atom('C')
+            cb_atom = residue.get_cb()
+            for atom in [n_atom, ca_atom, c_atom, cb_atom]:
+                if atom is not None:
+                    ncaccb_coords.append(atom.coordinates)
+
+        return np.stack(ncaccb_coords)
 
     def get_water_coordinates(self):
         """Get the coordinates of water molecules in the protein."""

@@ -19,7 +19,7 @@ class RLADataset(Dataset):
         self.top_k = top_k 
         self.crop_size = crop_size 
         self.samples = []
-        self.skip_virtual = True
+        self.skip_virtual = False
         # Instantiate featurizers
         self.protein_featurizer = ProteinFeaturizer(top_k=self.top_k)
         self.ligand_featurizer = LigandFeaturizer()
@@ -119,14 +119,15 @@ class RLADataset(Dataset):
                     print(f"[Warning] Skipped {target_name_for_error} due to error: {e}")
         else:
             # Testing mode with default protein and ligand
-            center = torch.tensor([-4.374, -7.353, -19.189], dtype=torch.float32)
+            center = torch.tensor([50, 100, 30], dtype=torch.float32)
             print ('Featurizing protein with virtual nodes and water...')
             protein_virtual_graph = self.protein_featurizer.featurize_graph_with_virtual_nodes(
                 protein_w_water=self.default_protein_w_obj,
                 protein_wo_water=self.default_protein_obj, # Virtual nodes based on default protein
                 ligand=self.default_ligand_obj,   # and default ligand
                 center=center,
-                crop_size=self.crop_size
+                crop_size=self.crop_size,
+                target_name='default_target'  # Default target name for testing
             )
             """
             featurize_graph_with_water handles has_water check 
@@ -173,4 +174,4 @@ class RLADataset(Dataset):
         
 if __name__ == '__main__':
     # Example usage
-    ProteinDataset = RLADataset(data_path='.', mode='train')
+    ProteinDataset = RLADataset(data_path='data', mode='train')

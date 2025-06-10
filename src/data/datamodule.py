@@ -163,7 +163,7 @@ class RLADataModule(pl.LightningDataModule):
                     processed_target_item[key] = path_value
                 elif key == 'affinity':
                     try:
-                        processed_target_item[key] = float(value)
+                        processed_target_item[key] = float(value) 
                     except (ValueError, TypeError):
                         print(f"[Warning] Could not convert affinity '{value}' to float for item {item_in_json.get('name', index)}. Skipping item.")
                         valid_item = False; break
