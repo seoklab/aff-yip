@@ -5,6 +5,9 @@ import pytorch_lightning as pl
 from torch_geometric.data import Batch
 from torch_scatter import scatter_mean
 from src.model.gvp_encoder import GVPGraphEncoderHybrid as GVPGraphEncoder
+from src.model.my_modules import GridBasedStructModule
+from .loss_utils import MultiTaskAffinityCoordinateLoss
+from .loss_utils import HuberReplacementLoss as AffinityLoss
 
 class AFFModel_ThreeBody(pl.LightningModule):
     def __init__(self,
@@ -20,13 +23,15 @@ class AFFModel_ThreeBody(pl.LightningModule):
                  dropout=0.1,
                  lr=1e-3,
                  interaction_mode="hierarchical",
-                 loss_type="multitask",  
+                 predict_str=False,
+                 loss_type="single",  # single: no classification head
                  loss_params=None):  
         super().__init__()
         self.save_hyperparameters()
         
         # === Original model components ===
         self.interaction_mode = interaction_mode
+        self.predict_str = predict_str
         
         # Encoders
         self.protein_encoder = GVPGraphEncoder(
@@ -57,39 +62,28 @@ class AFFModel_ThreeBody(pl.LightningModule):
         embed_dim = protein_hidden_dims[0]
         
         if interaction_mode == "hierarchical":
-            self.protein_water_attn = nn.MultiheadAttention(
+            self.protein_vn_attn = nn.MultiheadAttention(
                 embed_dim=embed_dim, num_heads=4, batch_first=True
             )
             self.complex_ligand_attn = nn.MultiheadAttention(
                 embed_dim=embed_dim, num_heads=4, batch_first=True
             )
-            self.pw_fusion = nn.Sequential(
+            self.pv_fusion = nn.Sequential(
                 nn.Linear(embed_dim * 2, embed_dim),
                 nn.ReLU(),
                 nn.Dropout(dropout),
                 nn.Linear(embed_dim, embed_dim)
             )
-        elif interaction_mode == "parallel":
-            self.protein_ligand_attn = nn.MultiheadAttention(
-                embed_dim=embed_dim, num_heads=4, batch_first=True
-            )
-            self.water_ligand_attn = nn.MultiheadAttention(
-                embed_dim=embed_dim, num_heads=4, batch_first=True
-            )
-            self.protein_water_attn = nn.MultiheadAttention(
-                embed_dim=embed_dim, num_heads=4, batch_first=True
-            )
-            self.three_way_fusion = nn.Sequential(
-                nn.Linear(embed_dim * 3, embed_dim * 2),
-                nn.ReLU(),
-                nn.Dropout(dropout),
-                nn.Linear(embed_dim * 2, embed_dim)
-            )
         
-        self.water_context_attn = nn.MultiheadAttention(
-            embed_dim=embed_dim, num_heads=4, batch_first=True
-        )
-        
+        # Structure Prediction Setups
+        if predict_str:
+            self.coord_loss_weight = 0.3 
+            self.structure_predictor = GridBasedStructModule(
+                    embed_dim=embed_dim, num_heads=4
+                ) 
+        else: 
+            self.coord_loss_weight = 0.0
+
         # === Enhanced components ===
         # Main regression head
         self.regressor = nn.Sequential(
@@ -101,10 +95,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
             nn.Linear(embed_dim // 2, 1)
         )
         
-        # Initialize loss function
-        self._init_loss_function(loss_type, loss_params)
-        
-        # Additional heads for multi-task learning
+        # Additional heads for multitask: classification and regression
         if loss_type == "multitask":
             # self.thresholds = [-3, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]
             self.thresholds = [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0]
@@ -115,6 +106,9 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 nn.Dropout(dropout),
                 nn.Linear(embed_dim, class_num)
             )
+        
+        # Initialize loss function
+        self._init_loss_function(loss_type, loss_params)
         
         # Track  metrics
         self.train_predictions = []
@@ -130,16 +124,9 @@ class AFFModel_ThreeBody(pl.LightningModule):
             loss_params = {}
         
         if loss_type == "multitask":
-            from .loss_utils import WeightedCategoryLoss_v2 as WeightedCategoryLoss
-            # self.loss_fn = WeightedCategoryLoss(
-            #         regression_weight=0.7,           # 70% weight on regression
-            #         category_penalty_weight=0.2,     # 20% weight on category penalty
-            #         extreme_penalty_weight=0.1,      # 10% weight on extreme preservation
-            #         extreme_boost_low=1.1,           # 2x boost for < 4.0
-            #         extreme_boost_high=1.1          # 1.5x boost for > 9.0
-            #     )
-            self.loss_fn = WeightedCategoryLoss(
-                    thresholds=[-3, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0],
+            from src.model.loss_utils import WeightedCategoryLoss_v2
+            self.loss_fn = WeightedCategoryLoss_v2(
+                    thresholds = self.thresholds, 
                     regression_weight=0.75,
                     category_penalty_weight=0.15,
                     extreme_penalty_weight=0,
@@ -149,9 +136,53 @@ class AFFModel_ThreeBody(pl.LightningModule):
                     extreme_boost_high=1.4
                 )
         elif loss_type == "single":
-            self.loss_fn = nn.MSELoss()
+            self.loss_fn = AffinityLoss(
+                delta=0.5,
+                extreme_weight=1.6,
+                ranking_weight=0.5) 
         
+        if self.predict_str:
+            # Create combined loss function
+            self.combined_loss_fn = MultiTaskAffinityCoordinateLoss(
+                affinity_loss_fn=self.loss_fn, 
+                coord_loss_weight=self.coord_loss_weight,
+                coord_loss_type="mse",
+                lig_internal_dist=True
+            )
+
         self.loss_type = loss_type
+    
+
+    def forward(self, batch):
+        interaction_results = self.get_embeddings(batch)
+        complex_embedding = interaction_results['complex_embedding']  # [B, embed_dim]
+
+        if self.loss_type == "multitask":
+            # Regression prediction
+            pred_affinity = self.regressor(complex_embedding).squeeze()
+            # Classification prediction
+            pred_logits = self.classification_head(complex_embedding)
+            # Get true affinities
+            affinities = batch['affinity'].to(self.device)
+            results = {
+                'affinity': pred_affinity,
+                'logits': pred_logits,
+                'target_affinity': affinities
+            }
+        else:
+            # Single-task regression
+            pred_affinity = self.regressor(complex_embedding).squeeze()
+            affinities = batch['affinity'].to(self.device)
+            results = {
+                'affinity': pred_affinity,
+                'target_affinity': affinities
+            }
+
+        if self.predict_str:
+            coord_results = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
+            results.update(coord_results)
+        
+        return results
     
     def get_embeddings(self, batch):
         """Get embeddings before final prediction (for multi-task learning)"""
@@ -160,92 +191,192 @@ class AFFModel_ThreeBody(pl.LightningModule):
         
         # Split protein and water nodes
         protein_mask = protein_batch.node_type == 0
-        water_mask = protein_batch.node_type == 1
+        # water_mask = protein_batch.node_type == 1
         virtual_mask = protein_batch.node_type == 2
         
-        # Process each component
+        # Step1: Process prot/lig component
         prot_s = self._process_protein_nodes(protein_batch, protein_mask)
-        virtual_s= self._process_virtual_nodes(protein_batch, virtual_mask, prot_s, protein_mask)
         lig_s = self._process_ligand_nodes(ligand_batch)
+
+        # Step2: Process water nodes (virtual nodes) using updated prot_s
+        virtual_s= self._process_virtual_nodes(protein_batch, virtual_mask, prot_s, protein_mask)
         
-        # Get interaction embeddings (before regression)
-        embeddings = self._compute_three_body_embeddings(
-            prot_s, virtual_s, lig_s, protein_batch, protein_mask, water_mask, ligand_batch
+        # Step3: Get interaction embeddings (before regression)
+        complex_embeddings, virtual_embeddings_enhanced = self._get_hierarchical_interaction_embeddings(
+            prot_s, virtual_s, lig_s, protein_batch, protein_mask, virtual_mask, ligand_batch
         )
         
-        return embeddings
+        return {
+            'complex_embedding': complex_embeddings,           # [B, embed_dim] for affinity
+            'enhanced_virtual_embeddings': virtual_embeddings_enhanced,  # [N_virtual, embed_dim] for coords
+            'virtual_batch_idx': protein_batch.batch[virtual_mask],      # Batch indices
+            'virtual_coords': protein_batch.x[virtual_mask]             # Grid coordinates
+        }      
     
-    def forward(self, batch):
-        if self.loss_type == "multitask":
-            # Get embeddings
-            embeddings = self.get_embeddings(batch)
-            
-            # Regression prediction
-            pred_affinity = self.regressor(embeddings).squeeze()
-            
-            # Classification prediction
-            pred_logits = self.classification_head(embeddings)
-            
-            # Get true affinities
-            affinities = batch['affinity'].to(self.device)
-            
-            return pred_affinity, pred_logits, affinities
-        else:
-            embeddings = self.get_embeddings(batch)
-            pred_affinity = self.regressor(embeddings).squeeze()
-            affinities = batch['affinity'].to(self.device)
-            return pred_affinity, affinities
-            
-    
-    def _compute_three_body_embeddings(self, prot_s, water_s, lig_s, protein_batch, 
-                                      protein_mask, water_mask, ligand_batch):
-        """Get embeddings for each sample (used in multi-task learning)"""
-        # Similar to _compute_three_body_interactions but returns embeddings
+    def _get_hierarchical_interaction_embeddings(self, prot_s, virtual_s, lig_s, 
+                                                      protein_batch, protein_mask, virtual_mask, ligand_batch):
+        """Get_embeddings-Step3: Hierarchical interaction but track virtual embeddings for coordinate prediction"""
+        
+        # Get batch information
         prot_batch_sizes = torch.bincount(protein_batch.batch[protein_mask]).tolist() if protein_mask.any() else []
-        water_batch_sizes = torch.bincount(protein_batch.batch[water_mask]).tolist() if water_mask.any() else []
+        virtual_batch_sizes = torch.bincount(protein_batch.batch[virtual_mask]).tolist() if virtual_mask.any() else []
         lig_batch_sizes = torch.bincount(ligand_batch.batch).tolist()
         
+        # Split by batch
         prot_s_list = torch.split(prot_s, prot_batch_sizes) if prot_s.size(0) > 0 else []
-        water_s_list = torch.split(water_s, water_batch_sizes) if water_s.size(0) > 0 else []
+        virtual_s_list = torch.split(virtual_s, virtual_batch_sizes) if virtual_s.size(0) > 0 else []
         lig_s_list = torch.split(lig_s, lig_batch_sizes)
         
-        embeddings = []
+        complex_embeddings = []
+        virtual_embeddings_after_interaction = []
         batch_size = len(lig_s_list)
-        # print (water_mask)
-        # print (water_s)
-        # print (water_s_list) 
 
         for i in range(batch_size):
             l = lig_s_list[i]
             p = prot_s_list[i] if i < len(prot_s_list) else torch.empty(0, self.hparams.protein_hidden_dims[0], device=self.device)
-            w = water_s_list[i] if i < len(water_s_list) else torch.empty(0, self.hparams.protein_hidden_dims[0], device=self.device)
-            # print (w)   
-            if self.interaction_mode == "hierarchical":
-                embedding = self._hierarchical_interaction(p, w, l)
-            else:
-                embedding = self._parallel_interaction(p, w, l)
+            v = virtual_s_list[i] if i < len(virtual_s_list) else torch.empty(0, self.hparams.protein_hidden_dims[0], device=self.device)
             
-            embeddings.append(embedding)
+            # Hierarchical interaction with virtual tracking
+            complex_emb, virtual_after_interaction = self._hierarchical_interaction_with_virtual(p, v, l)
+            
+            complex_embeddings.append(complex_emb)
+            virtual_embeddings_after_interaction.append(virtual_after_interaction)
         
-        return torch.stack(embeddings)
-    
-    def training_step(self, batch, batch_idx):
-        actual_batch_size = len(batch['ligand']) if 'ligand' in batch else y.size(0)
-        if self.loss_type == "multitask":
-            pred_affinity, pred_logits, affinities = self(batch)
-            loss, reg_loss, cat_penalty, extreme_penalty, pearson_pen = self.loss_fn(pred_affinity, affinities, pred_logits)
+        # Stack results
+        complex_embeddings = torch.stack(complex_embeddings)  # [B, embed_dim]
+        
+        # Concatenate virtual embeddings (maintaining batch order)
+        if virtual_embeddings_after_interaction and all(v.size(0) > 0 for v in virtual_embeddings_after_interaction):
+            virtual_embeddings_enhanced = torch.cat(virtual_embeddings_after_interaction, dim=0)
+        else:
+            virtual_embeddings_enhanced = virtual_s  # Fallback to input
+        
+        return complex_embeddings, virtual_embeddings_enhanced
 
-            # Log predictions
-            self._log_predictions(batch, pred_affinity, affinities, "Train")
+    def _hierarchical_interaction_with_virtual(self, p, v, l):
+        """Hierarchical: (P+V) -> complex -> interact with L"""
+        embed_dim = self.hparams.protein_hidden_dims[0]
+        
+        # Step 1: Protein-VirtualNode interaction (if both exist)
+        if p.size(0) > 0 and v.size(0) > 0:
+            # Cross-attention between protein and virtual nodes
+            p_batch = p.unsqueeze(0)  # [1, N_p, D]
+            v_batch = v.unsqueeze(0)  # [1, N_v, D]
+            
+            # virtual node attends to protein, protein attends to virtual node
+            v_enhanced, _ = self.protein_vn_attn(v_batch, p_batch, p_batch)  # [1, N_v, D]
+            p_enhanced, _ = self.protein_vn_attn(p_batch, v_batch, v_batch)  # [1, N_p, D]
+            
+            # Pool and fuse for complex representation
+            p_pooled = p_enhanced.mean(dim=1)  # [1, D]
+            v_pooled = v_enhanced.mean(dim=1)  # [1, D]
+            
+            pv_combined = torch.cat([p_pooled, v_pooled], dim=-1)  # [1, 2*D]
+            complex_repr = self.pv_fusion(pv_combined).unsqueeze(1)  # [1, 1, D]
+            
+            virtual_after_interaction = v_enhanced.squeeze(0)  # [N_v, D]
+ 
+        elif p.size(0) > 0:
+            # Only protein - need to add batch dimension properly  
+            complex_repr = p.mean(dim=0, keepdim=True).unsqueeze(0)  # [1, 1, D]
+            virtual_after_interaction = torch.empty(0, embed_dim, device=self.device)
+        elif v.size(0) > 0:
+            # Only water - need to add batch dimension properly
+            complex_repr = v.mean(dim=0, keepdim=True).unsqueeze(0)  # [1, 1, D]
+            virtual_after_interaction = v  # Use virtual node embeddings given as input
+        else:
+            # Neither protein nor water - create properly shaped zero tensor
+            complex_repr = torch.zeros(1, 1, embed_dim, device=self.device)  # [1, 1, D]
+            virtual_after_interaction = torch.empty(0, embed_dim, device=self.device)
+
+        # Step 2: Complex-Ligand interaction
+        if l.size(0) > 0:
+            l_batch = l.unsqueeze(0)  # [1, N_l, D]
+            
+            # Ligand attends to protein-water complex
+            final_out, _ = self.complex_ligand_attn(l_batch, complex_repr, complex_repr)  # [1, N_l, D]
+            final_repr = final_out.mean(dim=1)  # [1, D]
+        else:
+            final_repr = complex_repr.squeeze(1)  # Remove sequence dimension: [1, D]
+
+        return final_repr.squeeze(0), virtual_after_interaction # [D]
+
+    def _predict_coordinates_from_shared_embeddings(self, batch, interaction_results):
+        """Use enhanced virtual embeddings from shared pipeline for coordinate prediction"""
+        virtual_embeddings = interaction_results['enhanced_virtual_embeddings']  # [N_virtual, embed_dim]
+        virtual_coords = interaction_results['virtual_coords']                   # [N_virtual, 3]
+        virtual_batch_idx = interaction_results['virtual_batch_idx']             # [N_virtual]
+        
+        ligand_batch = batch['ligand'].to(self.device)
+        ligand_batch_idx = ligand_batch.batch
+        
+        # Create target mask for ligand atoms
+        batch_size = ligand_batch_idx.max().item() + 1
+        max_ligand_atoms = torch.bincount(ligand_batch_idx).max().item()
+        
+        target_mask = torch.zeros(batch_size, max_ligand_atoms, dtype=torch.bool, device=self.device)
+        for b in range(batch_size):
+            num_atoms = (ligand_batch_idx == b).sum().item()
+            target_mask[b, :num_atoms] = True
+        
+        # Use the structure module with shared embeddings
+        print ("[Debug] Using shared embeddings for structure prediction")
+        print (f"[Debug] Virtual embeddings shape: {virtual_embeddings.shape}")
+        print (f"[Debug] Virtual coords shape: {virtual_coords.shape}")
+        print (f"[Debug] Target mask shape: {target_mask.shape}")
+        print (f"[Debug] Virtual batch idx shape: {virtual_batch_idx.shape}")
+        pred_coords, attention_weights = self.structure_predictor(
+            virtual_embeddings, virtual_coords, target_mask, virtual_batch_idx
+        )
+        
+        # Get ground truth coordinates
+        target_coords = torch.zeros_like(pred_coords)
+        ligand_coords = ligand_batch.pos
+        
+        coord_idx = 0
+        for b in range(batch_size):
+            num_atoms = (ligand_batch_idx == b).sum().item()
+            target_coords[b, :num_atoms] = ligand_coords[coord_idx:coord_idx + num_atoms]
+            coord_idx += num_atoms
+        
+        return {
+            'predicted_ligand_coords': pred_coords,
+            'target_ligand_coords': target_coords,
+            'coord_attention_weights': attention_weights,
+            'coord_target_mask': target_mask
+        }
+
+    def training_step(self, batch, batch_idx):
+        results = self(batch)
+        # Affinity loss
+        if self.loss_type == "multitask":
+            affinity_loss, reg_loss, cat_penalty, extreme_penalty, pearson_pen = self.loss_fn(
+                results['affinity'], results['target_affinity'], results['logits']
+            )
+            self._log_predictions(batch, results['affinity'], results['target_affinity'], "Train")
             self.log("train_reg_loss", reg_loss, batch_size=actual_batch_size)
             self.log("train_cat_penalty", cat_penalty, batch_size=actual_batch_size)
             # self.log("train_extreme_penalty", extreme_penalty)
             self.log("train_Rs_penalty", pearson_pen, batch_size=actual_batch_size)
+        else:
+            affinity_loss = self.loss_fn(results['affinity'], results['target_affinity'])
+        
+        total_loss = affinity_loss
+
 
         elif self.loss_type == 'single':
             pred_affinity, affinities = self(batch)
             loss = self.loss_fn(pred_affinity, affinities)
             self._log_predictions(batch, pred_affinity, affinities, "Train")
+        
+        if self.coord_prediction and 'predicted_ligand_coords' in results:
+            coord_loss = self._compute_coordinate_loss(results)
+            loss += self.coord_loss_weight * coord_loss
+            
+            self.log("train_coord_loss", coord_loss, batch_size=len(batch['ligand']))
+            
+            # Log that we're using shared embeddings
+            self.log("train_shared_embedding_coord_loss", coord_loss, batch_size=len(batch['ligand']))
         
         self.train_predictions.extend(pred_affinity.detach().cpu().tolist())
         self.train_targets.extend(affinities.detach().cpu().tolist())
@@ -383,9 +514,9 @@ class AFFModel_ThreeBody(pl.LightningModule):
     def configure_optimizers(self):
         # Use different learning rates for different components
         param_groups = [
-            {'params': self.protein_encoder.parameters(), 'lr': self.hparams.lr * 0.5},
-            {'params': self.virtual_encoder.parameters(), 'lr': self.hparams.lr * 0.5},
-            {'params': self.ligand_encoder.parameters(), 'lr': self.hparams.lr * 0.5},
+            {'params': self.protein_encoder.parameters(), 'lr': self.hparams.lr * 1},
+            {'params': self.virtual_encoder.parameters(), 'lr': self.hparams.lr * 1},
+            {'params': self.ligand_encoder.parameters(), 'lr': self.hparams.lr * 1},
             {'params': self.regressor.parameters(), 'lr': self.hparams.lr},
         ]
         
@@ -443,25 +574,8 @@ class AFFModel_ThreeBody(pl.LightningModule):
         prot_node_mapping = torch.zeros(protein_batch.node_s.size(0), dtype=torch.long, device=self.device)
         prot_node_mapping[protein_node_indices] = torch.arange(len(protein_node_indices), device=self.device)
         prot_edge_index = prot_node_mapping[prot_edge_index]
-        # Fix edge vector features shape (if needed)
-        print (f"Processed protein edges - prot_edge_index: {prot_edge_index.shape}, prot_e_s: {prot_e_s.shape}, prot_e_v: {prot_e_v.shape}")
-        print (f"Processed protein nodes - prot_x_s: {prot_x_s.shape}, prot_x_v: {prot_x_v.shape}")
         prot_s, _ = self.protein_encoder(prot_x_s, prot_x_v, prot_edge_index, prot_e_s, prot_e_v)
         return prot_s
-    
-    def _verify_and_fix_edge_shapes(self, edge_s, edge_v, expected_edge_dims):
-        """
-        Ensure edge_v has shape [E, expected_vector_dim, 3] for GVP compatibility.
-        If mismatched, it replaces with zero vectors of the correct shape.
-        """
-        expected_vector_dim = expected_edge_dims[1]  # e.g., 3 from (32, 3)
-
-        # Case 1: edge_v missing or wrong shape
-        if edge_v.dim() != 3 or edge_v.size(1) != expected_vector_dim:
-            # print(f"[Fix] edge_v shape mismatch: got {edge_v.shape}, expected (E, {expected_vector_dim}, 3)")
-            edge_v = torch.zeros(edge_s.size(0), expected_vector_dim, 3, device=edge_s.device)
-
-        return edge_s, edge_v
     
     def _process_virtual_nodes(self, protein_batch, virtual_mask, prot_s, protein_mask):
         """Process virtual nodes with GVP encoder + protein context"""
@@ -482,7 +596,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         # Process water with GVP encoder
         try:
             # combine (protein + virtual) => use only virtual
-            virtual_s = self._encode_water_with_gvp(
+            virtual_s = self._encode_virtual_with_gvp(
                 protein_batch, virtual_mask, virtual_node_indices, virtual_x_s, virtual_x_v
             )
             # print(f"[Debug] Water GVP encoding successful: {water_s.shape if water_s is not None else 'None'}")
@@ -495,16 +609,16 @@ class AFFModel_ThreeBody(pl.LightningModule):
         if virtual_s is None:
             virtual_s = torch.zeros(virtual_x_s.size(0), self.hparams.protein_hidden_dims[0], device=self.device)
         
-        # Add protein context to water through cross-attention
-        if prot_s is not None and prot_s.size(0) > 0 and virtual_s.size(0) > 0:
-            try:
-                virtual_s = self._add_protein_context_to_water(
-                    virtual_s, prot_s, protein_batch, virtual_mask, protein_mask
-                )
-                # print(f"[Debug] Added protein context to water: {water_s.shape}")
-            except Exception as e:
-                pass  
-                # print(f"[Debug] Failed to add protein context to water: {e}")
+        # # Add protein context to water through cross-attention
+        # if prot_s is not None and prot_s.size(0) > 0 and virtual_s.size(0) > 0:
+        #     try:
+        #         virtual_s = self._add_protein_context_to_water(
+        #             virtual_s, prot_s, protein_batch, virtual_mask, protein_mask
+        #         )
+        #         # print(f"[Debug] Added protein context to water: {water_s.shape}")
+        #     except Exception as e:
+        #         pass  
+        #         # print(f"[Debug] Failed to add protein context to water: {e}")
         
         return virtual_s
 
@@ -560,12 +674,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
         combined_x_s = torch.cat([prot_x_s_subgraph, virtual_x_s], dim=0)
         combined_x_v = torch.cat([prot_x_v_subgraph, virtual_x_v], dim=0)
         
-        # Run GVP encoder on the combined subgraph
-        # print (f"[Debug] Combined subgraph - protein nodes: {prot_x_s_subgraph.shape}, water nodes: {water_x_s.shape}")
-        # print (f"[Debug] Combined edge index: {water_edge_index.shape}, edge_s: {water_e_s.shape}, edge_v: {water_e_v.shape}")
-        # print (f"[Debug] Combined node features - x_s: {combined_x_s.shape}, x_v: {combined_x_v.shape}")
-        # print (f"[Debug] Combined node features - x_s: {combined_x_s.shape}, x_v: {combined_x_v.shape}")
-        virtual_e_s, virtual_e_v = self._verify_and_fix_edge_shapes(virtual_e_s, virtual_e_v, expected_edge_dims=self.hparams.protein_edge_dims)
         combined_s, combined_v = self.virtual_encoder(
             combined_x_s, combined_x_v, virtual_edge_index, virtual_e_s, virtual_e_v
         )
@@ -575,34 +683,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         virtual_s = combined_s[num_protein_in_subgraph:]  # added sequentially / virtual features come after protein
         
         return virtual_s
-
-    def _add_protein_context_to_water(self, water_s, prot_s, protein_batch, water_mask, protein_mask):
-        """Add protein context to water through cross-attention"""
-        water_batch_idx = protein_batch.batch[water_mask]
-        prot_batch_idx = protein_batch.batch[protein_mask]
-        
-        # Process batch by batch
-        water_s_contextualized = []
-        for batch_id in torch.unique(water_batch_idx):
-            water_batch_mask = water_batch_idx == batch_id
-            prot_batch_mask = prot_batch_idx == batch_id
-            
-            if water_batch_mask.any() and prot_batch_mask.any():
-                w_batch = water_s[water_batch_mask].unsqueeze(0)  # [1, N_w, D]
-                p_batch = prot_s[prot_batch_mask].unsqueeze(0)    # [1, N_p, D]
-                
-                # Water queries, protein keys/values
-                w_contextualized, _ = self.water_context_attn(w_batch, p_batch, p_batch)
-                water_s_contextualized.append(w_contextualized.squeeze(0))
-            else:
-                # No protein context available
-                water_s_contextualized.append(water_s[water_batch_mask])
-        
-        if water_s_contextualized:
-            water_s = torch.cat(water_s_contextualized, dim=0)
-            
-        return water_s
-
+    
     def _process_ligand_nodes(self, ligand_batch):
         """Process ligand nodes with GVP encoder"""
         lx_s = ligand_batch.x
@@ -613,93 +694,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
         lig_s, _ = self.ligand_encoder(lx_s, lx_v_dummy, le_idx, le_s, le_v_dummy)
         return lig_s
 
-    def _hierarchical_interaction(self, p, w, l):
-        """Hierarchical: (P+W) -> complex -> interact with L"""
-        embed_dim = self.hparams.protein_hidden_dims[0]
-        
-        # print(f"[Debug] Hierarchical interaction - P: {p.shape}, W: {w.shape}, L: {l.shape}")
-        
-        # Step 1: Protein-Water interaction (if both exist)
-        
-        if p.size(0) > 0 and w.size(0) > 0:
-            # print("[Debug] Both protein and water present - computing P-W interaction")
-            # Cross-attention between protein and water
-            p_batch = p.unsqueeze(0)  # [1, N_p, D]
-            w_batch = w.unsqueeze(0)  # [1, N_w, D]
-            
-            # Water attends to protein, protein attends to water
-            w_enhanced, _ = self.protein_water_attn(w_batch, p_batch, p_batch)  # [1, N_w, D]
-            p_enhanced, _ = self.protein_water_attn(p_batch, w_batch, w_batch)  # [1, N_p, D]
-            
-            # Pool and fuse
-            p_pooled = p_enhanced.mean(dim=1)  # [1, D]
-            w_pooled = w_enhanced.mean(dim=1)  # [1, D]
-            
-            pw_combined = torch.cat([p_pooled, w_pooled], dim=-1)  # [1, 2*D]
-            complex_repr = self.pw_fusion(pw_combined).unsqueeze(1)  # [1, 1, D]
-            
-        elif p.size(0) > 0:
-            # print("[Debug] Only protein present - using protein only")
-            # Only protein - need to add batch dimension properly  
-            complex_repr = p.mean(dim=0, keepdim=True).unsqueeze(0)  # [1, 1, D]
-        elif w.size(0) > 0:
-            # print("[Debug] Only water present - using water only")
-            # Only water - need to add batch dimension properly
-            complex_repr = w.mean(dim=0, keepdim=True).unsqueeze(0)  # [1, 1, D]
-        else:
-            # print("[Debug] Neither protein nor water present - using zero embedding")
-            # Neither protein nor water - create properly shaped zero tensor
-            complex_repr = torch.zeros(1, 1, embed_dim, device=self.device)  # [1, 1, D]
-
-        # Step 2: Complex-Ligand interaction
-        if l.size(0) > 0:
-            l_batch = l.unsqueeze(0)  # [1, N_l, D]
-            
-            # Ligand attends to protein-water complex
-            final_out, _ = self.complex_ligand_attn(l_batch, complex_repr, complex_repr)  # [1, N_l, D]
-            final_repr = final_out.mean(dim=1)  # [1, D]
-            # print(f"[Debug] Final representation with ligand: {final_repr.shape}")
-        else:
-            # print("[Debug] No ligand present - using complex only")
-            final_repr = complex_repr.squeeze(1)  # Remove sequence dimension: [1, D]
-
-        return final_repr.squeeze(0)  # [D]
-
-    def _parallel_interaction(self, p, w, l):
-        """Parallel: P-L, W-L, P-W interactions computed separately then fused"""
-        embed_dim = self.hparams.protein_hidden_dims[0]
-        
-        # Initialize interaction representations
-        pl_repr = torch.zeros(embed_dim, device=self.device)
-        wl_repr = torch.zeros(embed_dim, device=self.device)
-        pw_repr = torch.zeros(embed_dim, device=self.device)
-
-        # Protein-Ligand interaction
-        if p.size(0) > 0 and l.size(0) > 0:
-            p_batch = p.unsqueeze(0)  # [1, N_p, D]
-            l_batch = l.unsqueeze(0)  # [1, N_l, D]
-            pl_out, _ = self.protein_ligand_attn(l_batch, p_batch, p_batch)  # [1, N_l, D]
-            pl_repr = pl_out.mean(dim=1).squeeze(0)  # [D]
-
-        # Water-Ligand interaction
-        if w.size(0) > 0 and l.size(0) > 0:
-            w_batch = w.unsqueeze(0)  # [1, N_w, D]
-            l_batch = l.unsqueeze(0)  # [1, N_l, D]
-            wl_out, _ = self.water_ligand_attn(l_batch, w_batch, w_batch)  # [1, N_l, D]
-            wl_repr = wl_out.mean(dim=1).squeeze(0)  # [D]
-
-        # Protein-Water interaction
-        if p.size(0) > 0 and w.size(0) > 0:
-            p_batch = p.unsqueeze(0)  # [1, N_p, D]
-            w_batch = w.unsqueeze(0)  # [1, N_w, D]
-            pw_out, _ = self.protein_water_attn(w_batch, p_batch, p_batch)  # [1, N_w, D]
-            pw_repr = pw_out.mean(dim=1).squeeze(0)  # [D]
-
-        # Fuse all three interactions
-        three_way_concat = torch.cat([pl_repr, wl_repr, pw_repr], dim=-1)  # [3*D]
-        final_repr = self.three_way_fusion(three_way_concat)  # [D]
-
-        return final_repr
     
     def _log_predictions(self, batch, y_pred, y, stage):
         for i, (pred, true) in enumerate(zip(y_pred.tolist(), y.tolist())):
