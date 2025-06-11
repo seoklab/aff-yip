@@ -5,7 +5,7 @@ import pytorch_lightning as pl
 from torch_geometric.data import Batch
 from torch_scatter import scatter_mean
 from src.model.gvp_encoder import GVPGraphEncoderHybrid as GVPGraphEncoder
-from src.model.my_modules import GridBasedStructModule
+from src.model.my_modules import GridBasedStructModulePadded as GridBasedStructModule
 from .loss_utils import MultiTaskAffinityCoordinateLoss
 from .loss_utils import HuberReplacementLoss as AffinityLoss
 
@@ -147,7 +147,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 affinity_loss_fn=self.loss_fn, 
                 coord_loss_weight=self.coord_loss_weight,
                 coord_loss_type="mse",
-                lig_internal_dist=True
+                lig_internal_dist_w=0.1
             )
 
         self.loss_type = loss_type
@@ -320,11 +320,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
             target_mask[b, :num_atoms] = True
         
         # Use the structure module with shared embeddings
-        print ("[Debug] Using shared embeddings for structure prediction")
-        print (f"[Debug] Virtual embeddings shape: {virtual_embeddings.shape}")
-        print (f"[Debug] Virtual coords shape: {virtual_coords.shape}")
-        print (f"[Debug] Target mask shape: {target_mask.shape}")
-        print (f"[Debug] Virtual batch idx shape: {virtual_batch_idx.shape}")
         pred_coords, attention_weights = self.structure_predictor(
             virtual_embeddings, virtual_coords, target_mask, virtual_batch_idx
         )
@@ -346,45 +341,139 @@ class AFFModel_ThreeBody(pl.LightningModule):
             'coord_target_mask': target_mask
         }
 
+    # ========================================
+    # LOSS COMPUTATION AND TRAINING STEPS
+    # ========================================
+
+    def _compute_loss(self, results):
+        """Unified loss computation for both affinity and coordinate prediction"""
+        if self.predict_str and 'predicted_ligand_coords' in results:
+            # Use combined loss function
+            loss_kwargs = {
+                'pred_affinity': results['affinity'],
+                'target_affinity': results['target_affinity']
+            }
+            
+            if self.loss_type == "multitask":
+                loss_kwargs['pred_logits'] = results['logits']
+            
+            loss_kwargs.update({
+                'pred_coords': results['predicted_ligand_coords'],
+                'target_coords': results['target_ligand_coords'],
+                'coord_mask': results['coord_target_mask']
+            })
+            
+            total_loss, loss_dict = self.combined_loss_fn(**loss_kwargs)
+            return total_loss, loss_dict
+        else:
+            # Affinity-only loss
+            if self.loss_type == "multitask":
+                affinity_result = self.loss_fn(
+                    results['affinity'], results['target_affinity'], results['logits']
+                )
+                if isinstance(affinity_result, tuple):
+                    total_loss, reg_loss, cat_penalty, extreme_penalty, pearson_pen = affinity_result
+                    loss_dict = {
+                        'total_loss': total_loss,
+                        'affinity_loss': total_loss,
+                        'reg_loss': reg_loss,
+                        'category_loss': cat_penalty,
+                        'extreme_penalty': extreme_penalty,
+                        'ranking_loss': pearson_pen # pearson penalty is used as ranking loss
+                    }
+            else:
+                affinity_result = self.loss_fn(results['affinity'], results['target_affinity'])
+                if isinstance(affinity_result, tuple):
+                    total_loss, reg_loss, ranking_loss, _, _ = affinity_result
+                    loss_dict = {'total_loss': total_loss,
+                                 'affinity_loss': total_loss,
+                                 'reg_loss': reg_loss, 
+                                 'ranking_loss': ranking_loss}
+            
+            return total_loss, loss_dict
+
     def training_step(self, batch, batch_idx):
         results = self(batch)
-        # Affinity loss
-        if self.loss_type == "multitask":
-            affinity_loss, reg_loss, cat_penalty, extreme_penalty, pearson_pen = self.loss_fn(
-                results['affinity'], results['target_affinity'], results['logits']
-            )
-            self._log_predictions(batch, results['affinity'], results['target_affinity'], "Train")
-            self.log("train_reg_loss", reg_loss, batch_size=actual_batch_size)
-            self.log("train_cat_penalty", cat_penalty, batch_size=actual_batch_size)
-            # self.log("train_extreme_penalty", extreme_penalty)
-            self.log("train_Rs_penalty", pearson_pen, batch_size=actual_batch_size)
-        else:
-            affinity_loss = self.loss_fn(results['affinity'], results['target_affinity'])
+        total_loss, loss_dict = self._compute_loss(results)
         
-        total_loss = affinity_loss
-
-
-        elif self.loss_type == 'single':
-            pred_affinity, affinities = self(batch)
-            loss = self.loss_fn(pred_affinity, affinities)
-            self._log_predictions(batch, pred_affinity, affinities, "Train")
+        # Log loss components
+        actual_batch_size = len(batch['ligand'])
+        for loss_name, loss_value in loss_dict.items():
+            if loss_name != 'total_loss':
+                self.log(f"train_{loss_name}", loss_value, batch_size=actual_batch_size)
         
-        if self.coord_prediction and 'predicted_ligand_coords' in results:
-            coord_loss = self._compute_coordinate_loss(results)
-            loss += self.coord_loss_weight * coord_loss
-            
-            self.log("train_coord_loss", coord_loss, batch_size=len(batch['ligand']))
-            
-            # Log that we're using shared embeddings
-            self.log("train_shared_embedding_coord_loss", coord_loss, batch_size=len(batch['ligand']))
+        # Store predictions for epoch-level metrics
+        self.train_predictions.extend(results['affinity'].detach().cpu().tolist())
+        self.train_targets.extend(results['target_affinity'].detach().cpu().tolist())
         
-        self.train_predictions.extend(pred_affinity.detach().cpu().tolist())
-        self.train_targets.extend(affinities.detach().cpu().tolist())
-
+        # Log predictions for debugging
+        self._log_predictions(batch, results['affinity'], results['target_affinity'], "Train")
+        
         # Log main loss
-        self.log("train_loss", loss, prog_bar=True, batch_size=actual_batch_size)
+        self.log("train_loss", total_loss, prog_bar=True, batch_size=actual_batch_size)
         
-        return loss
+        return total_loss
+    
+    def validation_step(self, batch, batch_idx):
+        results = self(batch)
+        total_loss, loss_dict = self._compute_loss(results)
+        
+        # Log loss components
+        actual_batch_size = len(batch['ligand'])
+        for loss_name, loss_value in loss_dict.items():
+            if loss_name != 'total_loss':
+                self.log(f"val_{loss_name}", loss_value, batch_size=actual_batch_size, 
+                        on_epoch=True, sync_dist=True)
+        
+        # Store predictions for epoch-level metrics
+        self.val_predictions.extend(results['affinity'].detach().cpu().tolist())
+        self.val_targets.extend(results['target_affinity'].detach().cpu().tolist())
+        
+        # Compute additional metrics
+        pred_affinity = results['affinity']
+        affinities = results['target_affinity']
+        mae = torch.mean(torch.abs(pred_affinity - affinities))
+        
+        # Log metrics
+        self.log("val_loss", total_loss, prog_bar=True, on_epoch=True, sync_dist=True, batch_size=actual_batch_size)
+        self.log("val_mae", mae, prog_bar=True, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
+        
+        # Log predictions for debugging
+        self._log_predictions(batch, results['affinity'], results['target_affinity'], "Valid")
+        
+        return total_loss
+
+    def test_step(self, batch, batch_idx):
+        results = self(batch)
+        total_loss, loss_dict = self._compute_loss(results)
+        
+        # Log loss components
+        actual_batch_size = len(batch['ligand'])
+        for loss_name, loss_value in loss_dict.items():
+            if loss_name != 'total_loss':
+                self.log(f"test_{loss_name}", loss_value, batch_size=actual_batch_size, 
+                        on_epoch=True, sync_dist=True)
+        
+        # Store predictions for epoch-level metrics
+        self.test_predictions.extend(results['affinity'].detach().cpu().tolist())
+        self.test_targets.extend(results['target_affinity'].detach().cpu().tolist())
+        
+        # Compute additional metrics
+        pred_affinity = results['affinity']
+        affinities = results['target_affinity']
+        mae = torch.mean(torch.abs(pred_affinity - affinities))
+        
+        # Log metrics
+        self.log("test_mae", mae, prog_bar=True, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
+        
+        # Log predictions for debugging
+        self._log_predictions(batch, results['affinity'], results['target_affinity'], "Test")
+        
+        return total_loss
+    
+    # ========================================
+    # EPOCH-LEVEL METRICS
+    # ========================================
     
     def on_train_epoch_end(self):
         """Compute epoch-level training metrics"""
@@ -405,38 +494,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
             self.train_predictions = []
             self.train_targets = []
 
-    def validation_step(self, batch, batch_idx):
-        actual_batch_size = len(batch['ligand']) if 'ligand' in batch else y.size(0)
-        if self.loss_type == "multitask":
-            pred_affinity, pred_logits, affinities = self(batch)
-            loss, reg_loss, cat_penalty, extreme_penalty, pearson_pen = self.loss_fn(pred_affinity, affinities, pred_logits)
-
-            # Log predictions
-            self._log_predictions(batch, pred_affinity, affinities, "Valid")
-            self.log("val_reg_loss", reg_loss, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-            self.log("val_cat_penalty", cat_penalty, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-            # self.log("val_extreme_penalty", extreme_penalty, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-            self.log("val_Rs_penalty", pearson_pen, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-        
-        elif self.loss_type == 'single': 
-            # Original (non-multitask) fallback
-            pred_affinity, affinities = self(batch)
-            loss = self.loss_fn(pred_affinity, affinities)
-            self._log_predictions(batch, pred_affinity, affinities, "Valid")
-        
-        # Store predictions for epoch-level metrics
-        self.val_predictions.extend(pred_affinity.detach().cpu().tolist())
-        self.val_targets.extend(affinities.detach().cpu().tolist())
-        
-        # Compute additional metrics
-        mae = torch.mean(torch.abs(pred_affinity - affinities))
-        
-        # Log metrics
-        self.log("val_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True, batch_size=actual_batch_size)
-        self.log("val_mae", mae, prog_bar=True, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-        
-        return loss
-    
     def on_validation_epoch_end(self):
         """Compute epoch-level validation metrics"""
         if len(self.val_predictions) > 0:
@@ -455,44 +512,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
             self.val_predictions = []
             self.val_targets = []
 
-    def test_step(self, batch, batch_idx):
-        actual_batch_size = len(batch['ligand']) if 'ligand' in batch else y.size(0)
-        if self.loss_type == "multitask":
-            # Forward pass: get both affinity value and classification logits
-            pred_affinity, pred_logits, affinities = self(batch)
-            
-            # Loss function (auto-generates class targets from affinities)
-            total_loss, reg_loss, cat_penalty, extreme_penalty, pearson_pen = self.loss_fn(
-                pred_affinity, affinities, pred_logits
-            )
-
-            # Log individual loss components
-            self._log_predictions(batch, pred_affinity, affinities, "TEST")
-            self.log("test_loss", total_loss, prog_bar=True, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-            self.log("test_reg_loss", reg_loss, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-            self.log("test_cat_penalty", cat_penalty, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-            self.log("test_Rs_penalty", pearson_pen, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-
-        elif self.loss_type == 'single':
-            # Original (non-multitask) fallback
-            # Forward pass: get affinity predictions
-            pred_affinity, affinities = self(batch)
-            total_loss = self.loss_fn(pred_affinity, affinities)
-            self._log_predictions(batch, pred_affinity, affinities, "Test")
-            self.log("test_reg_loss", reg_loss, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-            
-        # Track predictions for epoch-end analysis
-        self.test_predictions.extend(pred_affinity.detach().cpu().tolist())
-        self.test_targets.extend(affinities.detach().cpu().tolist())
-        
-        # Compute MAE
-        mae = torch.mean(torch.abs(pred_affinity - affinities))
-        self.log("test_mae", mae, prog_bar=True, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-            
-        return total_loss
-        
     def on_test_epoch_end(self):
-
         """Compute epoch-level test metrics"""
         if len(self.test_predictions) > 0:
             device = self.device if torch.cuda.is_available() else torch.device("cpu")
@@ -520,10 +540,21 @@ class AFFModel_ThreeBody(pl.LightningModule):
             {'params': self.regressor.parameters(), 'lr': self.hparams.lr},
         ]
         
+        # Add structure predictor parameters if enabled
+        if self.predict_str:
+            param_groups.append({
+                'params': self.structure_predictor.parameters(), 
+                'lr': self.hparams.lr
+            })
+        
         # Add other parameters
         other_params = []
+        excluded_modules = ['protein_encoder', 'virtual_encoder', 'ligand_encoder', 'regressor']
+        if self.predict_str:
+            excluded_modules.append('structure_predictor')
+            
         for name, param in self.named_parameters():
-            if not any(module in name for module in ['protein_encoder', 'virtual_encoder', 'ligand_encoder', 'regressor']):
+            if not any(module in name for module in excluded_modules):
                 other_params.append(param)
         
         if other_params:
@@ -540,13 +571,16 @@ class AFFModel_ThreeBody(pl.LightningModule):
             'optimizer': optimizer,
             'lr_scheduler': {
                 'scheduler': scheduler,
-                'monitor': 'val_reg_loss',
+                'monitor': 'val_loss',  # Monitor total loss, not just reg_loss
                 'interval': 'epoch',
                 'frequency': 1
             }
         }
     
-    # Include all the original methods (_process_protein_nodes, etc.) here
+    # ========================================
+    # ORIGINAL PROCESSING METHODS
+    # ========================================
+
 
     def _process_protein_nodes(self, protein_batch, protein_mask):
         """Process protein nodes with GVP encoder"""
@@ -698,5 +732,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
     def _log_predictions(self, batch, y_pred, y, stage):
         for i, (pred, true) in enumerate(zip(y_pred.tolist(), y.tolist())):
             # name = batch['ligand'][i].name if 'ligand' in batch and i < len(batch['ligand']) else f"{stage}_sample_{i}"
-            name = batch['name'][i] if 'ligand_name' in batch else f"{stage}_sample_{i}"
+            # name = batch['name'][i] if 'ligand_name' in batch else f"{stage}_sample_{i}"
+            name = batch.get('name', [f"{stage}_sample_{i}"])[i] if 'name' in batch else f"{stage}_sample_{i}"
             self.print(f"[{stage}] {name}: True Aff = {true:.3f}, Predicted = {pred:.3f}")
