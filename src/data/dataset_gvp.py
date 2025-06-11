@@ -164,7 +164,7 @@ class RLADataset(Dataset):
     def __getitem__(self, idx):
         try:
             sample = self.samples[idx]
-            sample.pop('name', None)  # Remove 'name' key if it exists
+            # sample.pop('name', None)  # Remove 'name' key if it exists
             # for key, value in sample.items():
             #     print(f"[{idx}] Key: {key}, Type: {type(value)}, Dtype: {getattr(value, 'dtype', None)}")
             return sample
