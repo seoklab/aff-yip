@@ -8,10 +8,11 @@ import wandb
 import torch 
 
 from src.model.model_exp_water import AFFModel_ThreeBody as AFFModel_ExplicitWater
-from model.model_twobody import AFFModel_TwoBody
+from src.model.model_twobody import AFFModel_TwoBody
 from src.model.model_virtual import AFFModel_ThreeBody as AFFModel_VirtualWater
 from src.data.datamodule import RLADataModule
 
+from scripts.train.train_utils import CoordinateSaverCallback, DelayedEarlyStopping
 
 def main(args):
     pl.seed_everything(args.seed)
@@ -56,7 +57,9 @@ def main(args):
             num_gvp_layers=args.num_gvp_layers,
             dropout=args.dropout,
             lr=args.learning_rate,
-            interaction_mode=args.interaction_mode  # "hierarchical" or "parallel"
+            interaction_mode=args.interaction_mode,  # "hierarchical" or "parallel"
+            loss_type=args.loss_type,  # "multitask" or "single"
+            predict_str=args.do_structure_prediction,  # whether to predict structure
         )
     elif args.model_type == 'explicit-water':
         model = AFFModel_ExplicitWater(
@@ -89,22 +92,32 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(args.output_dir, 'checkpoints'),
         filename='model-{epoch:02d}-{val_loss:.4f}',
-        monitor='val_loss',
+        monitor='val_mae',
         mode='min',
         save_top_k=3,
         save_last=True
     )
 
-    early_stop_callback = EarlyStopping(
-        monitor='val_reg_loss',
-        patience=args.patience,
-        mode='min'
-    )
-
+    early_stop_callback = DelayedEarlyStopping(
+    monitor='val_reg_loss',
+    mode='min',
+    patience=args.patience,
+    min_delta=0.01,
+    min_epochs_before_stop=80  # delay early stopping until at least 20 epochs
+)
+    
+    lig_coord_saver = CoordinateSaverCallback(
+        save_every_n_epochs=args.save_coords_every_n_epochs,  # Save every N epochs
+        original_mol2_dir="/home/j2ho/DB/biolip/BioLiP_updated_set/ligand_mol2",
+        output_mol2_dir=f"./predicted_mol2/{args.run_name}",
+        save_coords_pt=False,  # Also save as .pt files
+        separate_epoch_dirs=False)
+    
+    
     # === Trainer
     trainer = pl.Trainer(
-        max_epochs=args.max_epochs,
-        callbacks=[checkpoint_callback],
+        # max_epochs=args.max_epochs,
+        callbacks=[checkpoint_callback, lig_coord_saver, early_stop_callback],
         logger=wandb_logger,
         log_every_n_steps=1,
         accelerator=args.accelerator,
@@ -143,20 +156,25 @@ if __name__ == '__main__':
     general.add_argument('--wandb_mode', type=str, choices=['online', 'offline', 'disabled'], default='online')
     general.add_argument('--project', type=str, default='protein-ligand-affinity')
     general.add_argument('--run_name', type=str, default='gvp_affinity_run')
-    general.add_argument('--model_type', type=str, choices=['virtal','twobody','explicit-water'], default='twobody',
+    general.add_argument('--model_type', type=str, choices=['virtual','twobody','explicit-water'], default='twobody',
                          help='Model type to use: "gvp" for GVP model, "three_body" for three-body model')
     general.add_argument('--debug', action='store_true', help='Enable debugging mode with reduced epochs and batch size')
     # === Data
     data = parser.add_argument_group('Data')
     data.add_argument('--data_path', type=str, default='data/')
-    data.add_argument('--train_data_path', type=str, default='data/train_1.json')
-    data.add_argument('--valid_data_path', type=str, default='data/val.json')
+    data.add_argument('--train_data_path', type=str, default='data/train_split.json')
+    data.add_argument('--valid_data_path', type=str, default='data/val_split.json')
     data.add_argument('--test_data_path', type=str, default='data/casp16.json')
     data.add_argument('--small_set', action='store_true', help='Use small dataset for quick testing')
     data.add_argument('--batch_size', type=int, default=64)
     data.add_argument('--num_workers', type=int, default=4)
     data.add_argument('--top_k', type=int, default=30)
     data.add_argument('--crop_size', type=int, default=30)
+
+    # === Training
+    train = parser.add_argument_group('Training')
+    train.add_argument('--save_coords_every_n_epochs', type=int, default=20,
+                       help='Save ligand coordinates every N epochs')
 
     # === GVP model dims
     model = parser.add_argument_group('Model: Feature Dimensions')
@@ -172,7 +190,9 @@ if __name__ == '__main__':
     model.add_argument('--num_gvp_layers', type=int, default=4)
     model.add_argument('--dropout', type=float, default=0.1)
     model.add_argument('--interaction_mode', type=str, choices=['hierarchical', 'parallel'], default='hierarchical')
-    model.add_argument('--loss_type', type=str, choices=['multitask', 'single'], default='multitask') 
+    model.add_argument('--loss_type', type=str, choices=['multitask', 'single'], default='single') 
+    model.add_argument('--do_structure_prediction', action='store_true',
+                        help='Whether to predict ligand structure in addition to affinity')
     # === Optimizationtrain_
     optim = parser.add_argument_group('Optimization')
     optim.add_argument('--learning_rate', type=float, default=1e-4)
