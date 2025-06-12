@@ -13,7 +13,8 @@
       20.626312499999997,
       6.998656249999999
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1001/ligand_201_C_1.qh.mol2"
   },
   {
     "name": "L1002",
@@ -29,7 +30,8 @@
       21.693810810810813,
       6.885405405405407
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1002/ligand_293_C_1.qh.mol2"
   },
   {
     "name": "L1003",
@@ -45,7 +47,8 @@
       23.425129032258063,
       6.860774193548387
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1003/ligand_843_C_1.qh.mol2"
   },
   {
     "name": "L1004",
@@ -61,7 +64,8 @@
       21.543533333333336,
       6.3805000000000005
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1004/ligand_124_C_1.qh.mol2"
   },
   {
     "name": "L1005",
@@ -77,7 +81,8 @@
       21.09499999999999,
       6.517266666666667
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1005/ligand_868_C_1.qh.mol2"
   },
   {
     "name": "L1006",
@@ -93,7 +98,8 @@
       21.57989743589744,
       7.596743589743592
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1006/ligand_646_C_1.qh.mol2"
   },
   {
     "name": "L1007",
@@ -109,7 +115,8 @@
       20.60443333333333,
       6.7471999999999985
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1007/ligand_092_C_1.qh.mol2"
   },
   {
     "name": "L1008",
@@ -125,7 +132,8 @@
       20.93645161290322,
       6.300774193548387
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1008/ligand_994_C_1.qh.mol2"
   },
   {
     "name": "L1009",
@@ -141,7 +149,8 @@
       9.6083125,
       -6.763937499999998
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1009/ligand_LIG_L_1.qh.mol2"
   },
   {
     "name": "L1010",
@@ -157,7 +166,8 @@
       21.65943243243243,
       5.790567567567567
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1010/ligand_362_C_1.qh.mol2"
   },
   {
     "name": "L1011",
@@ -173,7 +183,8 @@
       20.905800000000003,
       6.429666666666668
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1011/ligand_852_C_1.qh.mol2"
   },
   {
     "name": "L1012",
@@ -189,7 +200,8 @@
       10.813275862068963,
       32.54527586206897
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1012/ligand_LIG_A_301.qh.mol2"
   },
   {
     "name": "L1013",
@@ -205,7 +217,8 @@
       21.32702272727273,
       6.673545454545453
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1013/ligand_075_C_1.qh.mol2"
   },
   {
     "name": "L1014",
@@ -221,7 +234,8 @@
       22.01608333333333,
       6.228416666666667
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1014/ligand_592_C_1.qh.mol2"
   },
   {
     "name": "L1015",
@@ -237,7 +251,8 @@
       12.245,
       1.183225806451613
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1015/ligand_125_C_1.qh.mol2"
   },
   {
     "name": "L1016",
@@ -253,7 +268,8 @@
       19.593899999999998,
       6.268025
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1016/ligand_979_C_1.qh.mol2"
   },
   {
     "name": "L1017",
@@ -269,7 +285,8 @@
       10.402966666666662,
       4.276033333333333
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L1000_prepared/L1017/ligand_043_C_1.qh.mol2"
   },
   {
     "name": "L3001",
@@ -285,7 +302,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3003",
@@ -301,7 +319,8 @@
       8.949076923076925,
       44.13594871794872
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3003/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3009",
@@ -317,7 +336,8 @@
       8.467404761904763,
       47.447952380952366
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3009/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3019",
@@ -333,7 +353,8 @@
       101.15024999999997,
       154.78977777777783
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3019/ligand_L0R_B_2.qh.mol2"
   },
   {
     "name": "L3019",
@@ -349,7 +370,8 @@
       99.60827777777777,
       163.47194444444446
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3019/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3021",
@@ -365,7 +387,8 @@
       8.79285,
       47.257149999999996
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3021/ligand_L0R_E_1.qh.mol2"
   },
   {
     "name": "L3024",
@@ -381,7 +404,8 @@
       8.533484848484848,
       45.82721212121212
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3024/ligand_DRG_B_1.qh.mol2"
   },
   {
     "name": "L3026",
@@ -397,7 +421,8 @@
       9.92203125,
       48.95996875
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3026/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3027",
@@ -413,7 +438,8 @@
       9.478516129032256,
       45.70019354838709
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3027/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3028",
@@ -429,7 +455,8 @@
       7.833899999999999,
       45.2011
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3028/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3031",
@@ -445,7 +472,8 @@
       7.78564,
       45.3554
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3031/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3035",
@@ -461,7 +489,8 @@
       8.944241379310345,
       45.37251724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3035/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3037",
@@ -477,7 +506,8 @@
       8.40716129032258,
       47.187935483870966
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3037/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3038",
@@ -493,7 +523,8 @@
       7.181695652173912,
       45.050782608695656
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3038/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3039",
@@ -509,7 +540,8 @@
       6.714954545454547,
       44.74736363636363
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3039/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3042",
@@ -525,7 +557,8 @@
       8.690966666666666,
       45.741333333333344
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3042/ligand_L0R_A_1001.qh.mol2"
   },
   {
     "name": "L3043",
@@ -541,7 +574,8 @@
       7.766961538461539,
       44.8763076923077
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3043/ligand_L0R_A_1001.qh.mol2"
   },
   {
     "name": "L3044",
@@ -557,7 +591,8 @@
       7.823280000000002,
       46.21732
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3044/ligand_L0R_L_1.qh.mol2"
   },
   {
     "name": "L3045",
@@ -573,7 +608,8 @@
       8.387250000000002,
       46.847892857142845
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3045/ligand_L0R_L_1.qh.mol2"
   },
   {
     "name": "L3047",
@@ -589,7 +625,8 @@
       8.77613333333333,
       48.74083333333333
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3047/ligand_L0R_B_1_B.qh.mol2"
   },
   {
     "name": "L3047",
@@ -605,7 +642,8 @@
       8.882466666666666,
       48.603300000000004
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3047/ligand_L0R_B_1_A.qh.mol2"
   },
   {
     "name": "L3049",
@@ -621,7 +659,8 @@
       2.006,
       46.386
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3049/ligand_CL_I_8.qh.mol2"
   },
   {
     "name": "L3049",
@@ -637,7 +676,8 @@
       8.922933333333333,
       46.927866666666674
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3049/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3050",
@@ -653,7 +693,8 @@
       7.38031818181818,
       45.64054545454547
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3050/ligand_L0R_C_1_A.qh.mol2"
   },
   {
     "name": "L3050",
@@ -669,7 +710,8 @@
       7.379090909090908,
       45.639636363636356
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3050/ligand_L0R_C_1_B.qh.mol2"
   },
   {
     "name": "L3053",
@@ -685,7 +727,8 @@
       9.1275,
       47.60563333333334
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3053/ligand_L0R_L_1_A.qh.mol2"
   },
   {
     "name": "L3053",
@@ -701,7 +744,8 @@
       9.12383333333333,
       47.59390000000001
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3053/ligand_L0R_L_1_B.qh.mol2"
   },
   {
     "name": "L3053",
@@ -717,7 +761,8 @@
       2.042,
       46.821
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3053/ligand_CL_I_6.qh.mol2"
   },
   {
     "name": "L3054",
@@ -733,7 +778,8 @@
       8.587,
       46.98189655172414
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3054/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3056",
@@ -749,7 +795,8 @@
       9.10745,
       46.262150000000005
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3056/ligand_L0R_E_1.qh.mol2"
   },
   {
     "name": "L3057",
@@ -765,7 +812,8 @@
       7.917888888888888,
       47.25151851851852
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3057/ligand_L0R_A_1001_A.qh.mol2"
   },
   {
     "name": "L3057",
@@ -781,7 +829,8 @@
       7.898481481481482,
       47.18385185185184
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3057/ligand_L0R_A_1001_B.qh.mol2"
   },
   {
     "name": "L3058",
@@ -797,7 +846,8 @@
       7.038878787878787,
       43.929272727272725
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3058/ligand_L0R_1_1.qh.mol2"
   },
   {
     "name": "L3060",
@@ -813,7 +863,8 @@
       8.497416666666668,
       -47.102624999999996
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3060/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3061",
@@ -829,7 +880,8 @@
       8.482281250000002,
       45.360937500000006
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3061/ligand_L0R_1_1.qh.mol2"
   },
   {
     "name": "L3064",
@@ -845,7 +897,8 @@
       12.515666666666666,
       40.85794444444444
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3064/ligand_L0R_B_2.qh.mol2"
   },
   {
     "name": "L3064",
@@ -861,7 +914,8 @@
       6.207111111111111,
       44.76705555555556
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3064/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3066",
@@ -877,7 +931,8 @@
       7.366818181818181,
       45.230318181818184
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3066/ligand_UNL_B_1.qh.mol2"
   },
   {
     "name": "L3068",
@@ -893,7 +948,8 @@
       8.386624999999997,
       44.15989583333334
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3068/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3073",
@@ -909,7 +965,8 @@
       6.751318181818181,
       46.635590909090915
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3073/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3075",
@@ -925,7 +982,8 @@
       10.101611111111113,
       47.40294444444443
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3075/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3076",
@@ -941,7 +999,8 @@
       12.36025,
       54.03325
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3076/ligand_ACT_I_7.qh.mol2"
   },
   {
     "name": "L3076",
@@ -957,7 +1016,8 @@
       7.949638888888889,
       48.63930555555555
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3076/ligand_L0R_B_1_B.qh.mol2"
   },
   {
     "name": "L3076",
@@ -973,7 +1033,8 @@
       8.276694444444443,
       48.647222222222226
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3076/ligand_L0R_B_1_A.qh.mol2"
   },
   {
     "name": "L3077",
@@ -989,7 +1050,8 @@
       10.041218749999999,
       50.185593749999995
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3077/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3079",
@@ -1005,7 +1067,8 @@
       7.207689655172414,
       45.903793103448294
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3079/ligand_L0R_B_1_B.qh.mol2"
   },
   {
     "name": "L3079",
@@ -1021,7 +1084,8 @@
       6.544551724137931,
       46.467
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3079/ligand_L0R_B_1_A.qh.mol2"
   },
   {
     "name": "L3080",
@@ -1037,7 +1101,8 @@
       7.543280000000002,
       46.23111999999999
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3080/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3081",
@@ -1053,7 +1118,8 @@
       7.5691250000000005,
       45.92154166666666
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3081/ligand_UNL_B_1.qh.mol2"
   },
   {
     "name": "L3081",
@@ -1069,7 +1135,8 @@
       13.528416666666663,
       41.79720833333332
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3081/ligand_UNL_B_2.qh.mol2"
   },
   {
     "name": "L3083",
@@ -1085,7 +1152,8 @@
       5.4278571428571425,
       42.270238095238085
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3083/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3087",
@@ -1101,7 +1169,8 @@
       7.981041666666666,
       44.92241666666666
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3087/ligand_L0R_E_1_A.qh.mol2"
   },
   {
     "name": "L3087",
@@ -1117,7 +1186,8 @@
       7.894541666666665,
       45.15616666666667
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3087/ligand_L0R_E_1_B.qh.mol2"
   },
   {
     "name": "L3090",
@@ -1133,7 +1203,8 @@
       8.964766666666662,
       48.40443333333335
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3090/ligand_L0R_1_1.qh.mol2"
   },
   {
     "name": "L3095",
@@ -1149,7 +1220,8 @@
       8.83174074074074,
       45.42081481481482
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3095/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3096",
@@ -1165,7 +1237,8 @@
       6.446960000000001,
       45.932719999999996
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3096/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3099",
@@ -1181,7 +1254,8 @@
       7.706812500000001,
       44.361437499999994
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3099/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3101",
@@ -1197,7 +1271,8 @@
       11.015166666666667,
       41.53480952380952
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3101/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3105",
@@ -1213,7 +1288,8 @@
       7.099714285714284,
       43.93738095238095
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3105/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3106",
@@ -1229,7 +1305,8 @@
       6.9327894736842115,
       46.548368421052636
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3106/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3109",
@@ -1245,7 +1322,8 @@
       13.089057142857142,
       43.18425714285714
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3109/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3111",
@@ -1261,7 +1339,8 @@
       8.797707692307695,
       45.797646153846145
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3111/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3114",
@@ -1277,7 +1356,8 @@
       7.39348148148148,
       45.680111111111124
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3114/ligand_RO4_B_1.qh.mol2"
   },
   {
     "name": "L3115",
@@ -1293,7 +1373,8 @@
       9.229700000000003,
       47.86599999999999
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3115/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3120",
@@ -1309,7 +1390,8 @@
       9.65085,
       45.29802500000001
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3120/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3121",
@@ -1325,7 +1407,8 @@
       13.602500000000001,
       40.09925
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3121/ligand_DMS_E_1.qh.mol2"
   },
   {
     "name": "L3121",
@@ -1341,7 +1424,8 @@
       8.654487179487177,
       45.41584615384615
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3121/ligand_L0R_D_1.qh.mol2"
   },
   {
     "name": "L3126",
@@ -1357,7 +1441,8 @@
       8.687388888888885,
       48.309083333333334
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3126/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3127",
@@ -1373,7 +1458,8 @@
       8.532314285714286,
       48.45802857142858
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3127/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3130",
@@ -1389,7 +1475,8 @@
       8.330518518518518,
       46.940000000000005
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3130/ligand_L0R_A_1001_A.qh.mol2"
   },
   {
     "name": "L3130",
@@ -1405,7 +1492,8 @@
       7.937518518518518,
       47.32266666666666
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3130/ligand_L0R_A_1001_B.qh.mol2"
   },
   {
     "name": "L3131",
@@ -1421,7 +1509,8 @@
       7.715807692307691,
       46.27623076923078
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3131/ligand_L0R_A_1001.qh.mol2"
   },
   {
     "name": "L3132",
@@ -1437,7 +1526,8 @@
       13.07025,
       53.683
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3132/ligand_ACT_D_3.qh.mol2"
   },
   {
     "name": "L3132",
@@ -1453,7 +1543,8 @@
       8.124758620689654,
       46.945620689655165
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3132/ligand_L0R_A_1001.qh.mol2"
   },
   {
     "name": "L3134",
@@ -1469,7 +1560,8 @@
       14.038236842105265,
       40.06889473684211
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3134/ligand_L0R_B_2.qh.mol2"
   },
   {
     "name": "L3134",
@@ -1485,7 +1577,8 @@
       8.62328947368421,
       47.53052631578947
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3134/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3137",
@@ -1501,7 +1594,8 @@
       7.156387096774193,
       45.06467741935485
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3137/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3138",
@@ -1517,7 +1611,8 @@
       10.553333333333335,
       39.49858333333333
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3138/ligand_L0R_B_2.qh.mol2"
   },
   {
     "name": "L3138",
@@ -1533,7 +1628,8 @@
       8.325833333333334,
       46.75704166666666
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3138/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3139",
@@ -1549,7 +1645,8 @@
       7.104303030303029,
       45.307727272727284
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3139/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3140",
@@ -1565,7 +1662,8 @@
       8.165458333333333,
       45.82983333333335
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3140/ligand_L0R_E_1.qh.mol2"
   },
   {
     "name": "L3141",
@@ -1581,7 +1679,8 @@
       8.705967741935481,
       46.15332258064516
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3141/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3142",
@@ -1597,7 +1696,8 @@
       7.126625,
       44.73712500000001
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3142/ligand_L0R_E_1.qh.mol2"
   },
   {
     "name": "L3143",
@@ -1613,7 +1713,8 @@
       7.706,
       45.72577777777777
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3143/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3144",
@@ -1629,7 +1730,8 @@
       7.039241379310344,
       44.595034482758635
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3144/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3145",
@@ -1645,7 +1747,8 @@
       9.8662,
       48.45971428571429
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3145/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3149",
@@ -1661,7 +1764,8 @@
       7.140449999999999,
       45.30915
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3149/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3150",
@@ -1677,7 +1781,8 @@
       7.045999999999999,
       45.223200000000006
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3150/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3151",
@@ -1693,7 +1798,8 @@
       8.81417142857143,
       49.28137142857141
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3151/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3154",
@@ -1709,7 +1815,8 @@
       7.202608695652174,
       45.348260869565216
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3154/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3156",
@@ -1725,7 +1832,8 @@
       7.370374999999999,
       45.169333333333334
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3156/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3157",
@@ -1741,7 +1849,8 @@
       9.122911764705886,
       47.97488235294117
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3157/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3158",
@@ -1757,7 +1866,8 @@
       8.662275862068967,
       46.33703448275861
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3158/ligand_L0R_E_1.qh.mol2"
   },
   {
     "name": "L3159",
@@ -1773,7 +1883,8 @@
       7.490807692307691,
       45.67423076923077
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3159/ligand_L0R_E_1.qh.mol2"
   },
   {
     "name": "L3160",
@@ -1789,7 +1900,8 @@
       9.41526923076923,
       41.88357692307692
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3160/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3162",
@@ -1805,7 +1917,8 @@
       8.391666666666667,
       46.97995833333332
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3162/ligand_L0R_E_1.qh.mol2"
   },
   {
     "name": "L3165",
@@ -1821,7 +1934,8 @@
       9.315435897435899,
       48.42317948717949
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3165/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3170",
@@ -1837,7 +1951,8 @@
       11.457628571428572,
       44.80951428571429
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3170/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3171",
@@ -1853,7 +1968,8 @@
       11.55372222222222,
       44.556888888888885
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3171/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3177",
@@ -1869,7 +1985,8 @@
       7.263869565217392,
       -45.54300000000001
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3177/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3183",
@@ -1885,7 +2002,8 @@
       11.770411764705884,
       43.61123529411765
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3183/ligand_L0R_F_1.qh.mol2"
   },
   {
     "name": "L3184",
@@ -1901,7 +2019,8 @@
       8.01321875,
       44.368750000000006
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3184/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3186",
@@ -1917,7 +2036,8 @@
       8.8202619047619,
       47.25952380952381
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3186/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3188",
@@ -1933,7 +2053,8 @@
       11.800540540540538,
       44.19767567567567
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3188/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3189",
@@ -1949,7 +2070,8 @@
       11.803194444444445,
       43.90930555555555
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3189/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3190",
@@ -1965,7 +2087,8 @@
       5.411823529411765,
       44.79135294117648
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3190/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3192",
@@ -1981,7 +2104,8 @@
       5.552611111111111,
       45.242333333333335
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3192/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3194",
@@ -1997,7 +2121,8 @@
       6.213285714285713,
       44.88457142857142
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3194/ligand_L0R_C_1.qh.mol2"
   },
   {
     "name": "L3196",
@@ -2013,7 +2138,8 @@
       9.282666666666668,
       48.65612820512821
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3196/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3197",
@@ -2029,7 +2155,8 @@
       9.038975,
       47.223825000000005
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3197/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3200",
@@ -2045,7 +2172,8 @@
       8.96513888888889,
       -44.046777777777784
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3200/ligand_L0R_E_1.qh.mol2"
   },
   {
     "name": "L3202",
@@ -2061,7 +2189,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3203",
@@ -2077,7 +2206,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3204",
@@ -2093,7 +2223,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3205",
@@ -2109,7 +2240,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3206",
@@ -2125,7 +2257,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3207",
@@ -2141,7 +2274,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3208",
@@ -2157,7 +2291,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3209",
@@ -2173,7 +2308,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3210",
@@ -2189,7 +2325,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3211",
@@ -2205,7 +2342,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3212",
@@ -2221,7 +2359,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3213",
@@ -2237,7 +2376,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3214",
@@ -2253,7 +2393,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3215",
@@ -2269,7 +2410,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3216",
@@ -2285,7 +2427,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3217",
@@ -2301,7 +2444,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3218",
@@ -2317,7 +2461,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3219",
@@ -2333,7 +2478,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3220",
@@ -2349,7 +2495,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3221",
@@ -2365,7 +2512,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3222",
@@ -2381,7 +2529,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3223",
@@ -2397,7 +2546,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3224",
@@ -2413,7 +2563,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3225",
@@ -2429,7 +2580,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3226",
@@ -2445,7 +2597,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3227",
@@ -2461,7 +2614,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3228",
@@ -2477,7 +2631,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3229",
@@ -2493,7 +2648,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3230",
@@ -2509,7 +2665,8 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   },
   {
     "name": "L3231",
@@ -2525,6 +2682,7 @@
       8.942758620689654,
       45.28951724137931
     ],
-    "err_flag": false
+    "err_flag": false,
+    "ligfile_for_vn": "/home/j2ho/DB/casp16/L3000_prepared/L3001/ligand_L0R_B_1.qh.mol2"
   }
 ]
