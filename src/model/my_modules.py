@@ -95,7 +95,13 @@ class GridBasedStructModulePadded(nn.Module):
         """
         batch_size = target_mask.size(0)
         max_ligand_atoms = target_mask.size(1)
-        
+
+        if len(batch_idx) == 0:
+            # No virtual nodes, return empty tensors
+            predicted_coords = torch.zeros(batch_size, max_ligand_atoms, 3, device=virtual_embeddings.device)
+            attention_weights_all = torch.zeros(batch_size, max_ligand_atoms, 1, device=virtual_embeddings.device)
+            return None, None 
+
         # Find max number of virtual nodes across all samples
         virtual_counts = torch.bincount(batch_idx)
         max_virtual_nodes = virtual_counts.max().item()
