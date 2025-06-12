@@ -16,7 +16,7 @@ class DelayedEarlyStopping(EarlyStopping):
             return
         # After threshold, behave as normal
         super().on_validation_end(trainer, pl_module)
-        
+
 def save_predicted_mol2(name, predicted_coords, original_mol2_dir, output_mol2_dir):
     """
     Replace coordinates in original MOL2 file with predicted coordinates
@@ -139,8 +139,12 @@ class CoordinateSaverCallback(pl.Callback):
         if (trainer.current_epoch + 1) % self.save_every_n_epochs == 0:
             if pl_module.predict_str:  # Only if structure prediction is enabled
                 self.save_coordinates(trainer, pl_module)
-    
-    def save_coordinates(self, trainer, pl_module):
+
+    def on_test_epoch_end(self, trainer, pl_module):
+        if pl_module.predict_str:
+            self.save_coordinates(trainer, pl_module, stage='test')
+
+    def save_coordinates(self, trainer, pl_module, stage='val'):
         """Save coordinates both as MOL2 files and as PyTorch tensors"""
         # Get validation dataloader
         val_dataloader = trainer.val_dataloaders
@@ -150,14 +154,14 @@ class CoordinateSaverCallback(pl.Callback):
         all_targets = []
         all_names = []
         saved_mol2_count = 0
-        
+        output_mol2_dir = os.path.join(self.output_mol2_dir, stage)
         # Determine output directory for this epoch
         if self.separate_epoch_dirs:
             # Option 1: Separate directories per epoch
-            epoch_output_dir = os.path.join(self.output_mol2_dir, f"epoch_{trainer.current_epoch+1}")
+            epoch_output_dir = os.path.join(output_mol2_dir, f"epoch_{trainer.current_epoch+1}")
         else:
             # Option 2: Single directory with epoch suffix in filename
-            epoch_output_dir = self.output_mol2_dir
+            epoch_output_dir = output_mol2_dir
         
         with torch.no_grad():
             for batch in val_dataloader:
