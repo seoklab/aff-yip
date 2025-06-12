@@ -42,6 +42,8 @@ def get_aa_one_hot(protein:Protein) -> torch.Tensor:
 
 def get_water_embeddings(X_water, num_embeddings=16):
     # now just random embeddings
+    if X_water.size(0) == 0:
+        return torch.empty((0, num_embeddings), dtype=torch.float32)
     return torch.rand(X_water.size(0), num_embeddings, dtype=torch.float32)
 
 def get_rbf(D, D_min=0, D_max=20, D_count=16, device=None):
@@ -231,7 +233,6 @@ def get_backbone_orientation(X):
     # result[i, 0, :] will be the forward vector for residue i
     # result[i, 1, :] will be the backward vector for residue i
     orientation_features = torch.cat([forward_final, backward_final], dim=-2) # (num_residues, 2, 3)
-
     return orientation_features
 
 
@@ -302,7 +303,6 @@ def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
 
     ncl = [sum(labels==k) for k in range(n)]
     biggest = np.unique(np.where(labels==np.argmax(ncl)))
-    
     grids = grids[biggest]
 
     virtual_nodes = [VirtualNode(coord) for coord in grids]

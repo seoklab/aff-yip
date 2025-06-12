@@ -115,13 +115,13 @@ class RLADataModule(pl.LightningDataModule):
         processed_meta_list = []
         
         # Define all file path keys from your JSON structure that need path joining
-        file_path_keys_from_json = ['pdb_file_biolip', 'pdb_file_db', 'ligand_mol2']
+        file_path_keys_from_json = ['pdb_file_biolip', 'pdb_file_db', 'ligand_mol2', 'ligfile_for_vn']
         
         # Define all keys considered essential for an entry to be valid.
         # If any of these are missing, the entry is skipped.
         essential_keys_from_json = [
             'name', 'pdb_file_biolip', 'pdb_file_db', 
-            'ligand_mol2', 
+            'ligand_mol2', 'ligfile_for_vn', 
             'affinity', 'receptor_chain', 'center' 
         ] # 'err_flag' is checked separately
 

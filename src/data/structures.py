@@ -193,7 +193,7 @@ class VirtualNode:
     def __init__(self, coordinates, node_type='virtual'):
         self.coordinates = np.array(coordinates)
         self.node_type = node_type  # e.g., 'virtual', 'pocket', etc.
-        self.water_occupancy = None
+        # self.water_occupancy = None
 
     def set_water_occupancy(self, water_coords, sigma=2.0, cutoff_distance=6.0, 
                           normalization='none'):

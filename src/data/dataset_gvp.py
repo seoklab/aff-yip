@@ -45,6 +45,7 @@ class RLADataset(Dataset):
                     pdbfile_raw = target_info.get('pdb_file_db', None) # pdb files from db, with water and other residues
                     receptor_chain = target_info.get('receptor_chain', None) # Optional receptor chain
                     ligfile = target_info.get('ligand_mol2', None)
+                    ligfile_for_vn = target_info.get('ligfile_for_vn', None) # Optional ligand for virtual nodes
                     affinity_value = target_info.get('affinity', None)
                     if affinity_value is not None:
                         affinity = torch.tensor(float(affinity_value), dtype=torch.float32)
@@ -60,12 +61,12 @@ class RLADataset(Dataset):
                     protein_obj = Protein(pdb_filepath=pdbfile, read_water=False, read_ligand=False)
                     ligand_obj = Ligand(mol2_filepath=ligfile, drop_H=False)
                     # protein graph with virtual nodes and water
-                    # print ('Featurizing protein with virtual nodes and water...')
                     if not self.skip_virtual:
                         protein_virtual_graph = self.protein_featurizer.featurize_graph_with_virtual_nodes(
                         protein_w_water=protein_w_obj,
                         protein_wo_water=protein_obj, # Virtual nodes based on default protein
                         ligand=ligand_obj,   # and default ligand
+                        ligand_for_vn=None if ligfile_for_vn is None else Ligand(mol2_filepath=ligfile_for_vn, drop_H=False),
                         center=center,
                         crop_size=self.crop_size,
                         target_name=name
@@ -79,13 +80,11 @@ class RLADataset(Dataset):
                     # These three are equivalent / protein graph without water and without virtual nodes
                     # print ('Featurizing protein only, using no_water_protein object') 
                     # protein_only_graph = self.protein_featurizer.featurize_graph_with_water(protein_obj, center=center, crop_size=self.crop_size)
-                    # print ('Featurizing protein only, using no_water_protein object, with no_water function')
                     protein_only_graph = self.protein_featurizer.featurize_no_water_graph(protein_obj, center=center, crop_size=self.crop_size)  
                     # print ('Featurizing protein only, using water_protein object with no_water function')
                     # protein_only_graph = self.protein_featurizer.featurize_no_water_graph(protein_w_obj, center=center, crop_size=self.crop_size)    
 
                     ## protein graph with water but without virtual nodes
-                    # print ('Featurizing protein with water (no virtual nodes), using water_protein object')
                     protein_water_graph = self.protein_featurizer.featurize_graph_with_water(protein_w_obj, center=center, crop_size=self.crop_size)
                     
                     ligand_graph = self.ligand_featurizer.featurize_graph(ligand_obj)

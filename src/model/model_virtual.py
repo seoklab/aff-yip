@@ -180,7 +180,8 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
         if self.predict_str:
             coord_results = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
-            results.update(coord_results)
+            if coord_results['predicted_ligand_coords'] is not None:
+                results.update(coord_results)
         
         return results
     
@@ -323,7 +324,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         pred_coords, attention_weights = self.structure_predictor(
             virtual_embeddings, virtual_coords, target_mask, virtual_batch_idx
         )
-        
+            
         # Get ground truth coordinates
         target_coords = torch.zeros_like(pred_coords)
         ligand_coords = ligand_batch.pos
