@@ -116,7 +116,7 @@ def main(args):
     
     # === Trainer
     trainer = pl.Trainer(
-        # max_epochs=args.max_epochs,
+        max_epochs=args.max_epochs,
         callbacks=[checkpoint_callback, lig_coord_saver, early_stop_callback],
         logger=wandb_logger,
         log_every_n_steps=1,
@@ -162,8 +162,8 @@ if __name__ == '__main__':
     # === Data
     data = parser.add_argument_group('Data')
     data.add_argument('--data_path', type=str, default='data/')
-    data.add_argument('--train_data_path', type=str, default='data/train_split.json')
-    data.add_argument('--valid_data_path', type=str, default='data/val_split.json')
+    data.add_argument('--train_data_path', type=str, default='data/train.json')
+    data.add_argument('--valid_data_path', type=str, default='data/val.json')
     data.add_argument('--test_data_path', type=str, default='data/casp16.json')
     data.add_argument('--small_set', action='store_true', help='Use small dataset for quick testing')
     data.add_argument('--batch_size', type=int, default=64)
