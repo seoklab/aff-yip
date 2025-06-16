@@ -8,7 +8,8 @@ from torch_geometric.data import Batch
 import torch_geometric
 import torch 
 
-from .dataset_gvp import RLADataset # Or appropriate import
+# from .dataset_gvp import RLADataset # Or appropriate import
+from .dataset_gvp import RLADatasetLazy as RLADataset
 
 def _log_bad_samples(names, path='bad_samples.txt'):
     """Append bad sample names to a file"""
@@ -203,8 +204,21 @@ class RLADataModule(pl.LightningDataModule):
     @staticmethod
     def safe_collate_fn(batch, error_log_path='bad_samples.txt'):
         batch = [x for x in batch if x is not None]
+        # batch = [x for x in batch if x is not None and not x.get('skip', False)]
         if len(batch) == 0:
             return None
+        base_keys = set(batch[0].keys())
+        batch_f = []
+        for sample in batch:
+            if set(sample.keys()) != base_keys:
+                print(f"[Collate Warning] Inconsistent keys in batch: {[s.keys() for s in batch]}")
+                return None  # 그냥 skip
+            else:
+                batch_f.append(sample)
+        if len(batch_f) == 0:
+            print("[Collate Warning] All samples in batch were filtered out. Returning None.")
+            return None
+        batch = batch_f
 
         collated = {}
         for key in batch[0].keys():
