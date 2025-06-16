@@ -120,6 +120,7 @@ def main(args):
         callbacks=[checkpoint_callback, lig_coord_saver, early_stop_callback],
         logger=wandb_logger,
         log_every_n_steps=1,
+        accumulate_grad_batches=args.accum_grad,
         accelerator=args.accelerator,
         strategy=DDPStrategy(find_unused_parameters=True) if args.ddp and args.accelerator == 'gpu' else 'auto',
         devices=args.devices,
@@ -175,6 +176,8 @@ if __name__ == '__main__':
     train = parser.add_argument_group('Training')
     train.add_argument('--save_coords_every_n_epochs', type=int, default=20,
                        help='Save ligand coordinates every N epochs')
+    train.add_argument('--accum_grad', type=int, default=1,
+                       help='Number of gradient accumulation steps')
 
     # === GVP model dims
     model = parser.add_argument_group('Model: Feature Dimensions')
