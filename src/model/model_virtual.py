@@ -6,6 +6,7 @@ from torch_geometric.data import Batch
 from torch_scatter import scatter_mean
 from src.model.gvp_encoder import GVPGraphEncoderHybrid as GVPGraphEncoder
 from src.model.my_modules import GridBasedStructModulePadded as GridBasedStructModule
+from src.model.my_modules import PairwiseAttentionStructModule as StructModule
 from .loss_utils import MultiTaskAffinityCoordinateLoss
 from .loss_utils import HuberReplacementLoss as AffinityLoss
 
@@ -78,9 +79,13 @@ class AFFModel_ThreeBody(pl.LightningModule):
         # Structure Prediction Setups
         if predict_str:
             self.coord_loss_weight = 0.3 
-            self.structure_predictor = GridBasedStructModule(
-                    embed_dim=embed_dim, num_heads=4
-                ) 
+            # self.structure_predictor = GridBasedStructModule(
+            #         embed_dim=embed_dim, num_heads=4
+            #     )
+            self.structure_predictor = StructModule(
+                virtual_embed_dim=virtual_hidden_dims[0],
+                ligand_embed_dim=ligand_hidden_dims[0],
+            ) 
         else: 
             self.coord_loss_weight = 0.0
 
@@ -211,7 +216,9 @@ class AFFModel_ThreeBody(pl.LightningModule):
             'complex_embedding': complex_embeddings,           # [B, embed_dim] for affinity
             'enhanced_virtual_embeddings': virtual_embeddings_enhanced,  # [N_virtual, embed_dim] for coords
             'virtual_batch_idx': protein_batch.batch[virtual_mask],      # Batch indices
-            'virtual_coords': protein_batch.x[virtual_mask]             # Grid coordinates
+            'virtual_coords': protein_batch.x[virtual_mask],             # Grid coordinates
+            'ligand_embeddings': lig_s,  # [N_ligand, embed_dim]
+            'ligand_batch_idx': ligand_batch.batch,  # Batch indices for ligands
         }      
     
     def _get_hierarchical_interaction_embeddings(self, prot_s, virtual_s, lig_s, 
@@ -308,8 +315,10 @@ class AFFModel_ThreeBody(pl.LightningModule):
         virtual_coords = interaction_results['virtual_coords']                   # [N_virtual, 3]
         virtual_batch_idx = interaction_results['virtual_batch_idx']             # [N_virtual]
         
+        ligand_embeddings = interaction_results['ligand_embeddings'] 
+        ligand_batch_idx = interaction_results['ligand_batch_idx']
+
         ligand_batch = batch['ligand'].to(self.device)
-        ligand_batch_idx = ligand_batch.batch
         
         # Create target mask for ligand atoms
         batch_size = ligand_batch_idx.max().item() + 1
@@ -322,9 +331,14 @@ class AFFModel_ThreeBody(pl.LightningModule):
         
         # Use the structure module with shared embeddings
         pred_coords, attention_weights = self.structure_predictor(
-            virtual_embeddings, virtual_coords, target_mask, virtual_batch_idx
+            virtual_embeddings=virtual_embeddings,
+            virtual_coords=virtual_coords, 
+            ligand_embeddings=ligand_embeddings,
+            virtual_batch_idx=virtual_batch_idx,
+            ligand_batch_idx=ligand_batch_idx,
+            target_mask=target_mask
         )
-            
+
         # Get ground truth coordinates
         target_coords = torch.zeros_like(pred_coords)
         ligand_coords = ligand_batch.pos
