@@ -8,6 +8,7 @@ from src.model.gvp_encoder import GVPGraphEncoderHybrid as GVPGraphEncoder
 from src.model.my_modules import GridBasedStructModulePadded as GridBasedStructModule
 from src.model.my_modules import PairwiseAttentionStructModule as StructModule
 from src.model.my_modules import VectorizedPairwiseAttentionStructModule as StructModule_v2
+from src.model.flowmatching.flow_modules import FlowMatchingStructurePredictor as FlowStructureModule
 from .loss_utils import MultiTaskAffinityCoordinateLoss
 from .loss_utils import HuberReplacementLoss as AffinityLoss
 
@@ -23,9 +24,9 @@ class AFFModel_ThreeBody(pl.LightningModule):
                  ligand_hidden_dims=(196, 3),
                  num_gvp_layers=3,
                  dropout=0.1,
+                 num_flow_layers=4,
                  lr=1e-3,
                  interaction_mode="hierarchical",
-                 predict_str=False,
                  loss_type="single",  # single: no classification head
                  loss_params=None):  
         super().__init__()
@@ -33,7 +34,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
         
         # === Original model components ===
         self.interaction_mode = interaction_mode
-        self.predict_str = predict_str
         
         # Encoders
         self.protein_encoder = GVPGraphEncoder(
@@ -78,18 +78,15 @@ class AFFModel_ThreeBody(pl.LightningModule):
             )
         
         # Structure Prediction Setups
-        if predict_str:
-            self.coord_loss_weight = 0.3 
-            # self.structure_predictor = GridBasedStructModule(
-            #         embed_dim=embed_dim, num_heads=4
-            #     )
-            self.structure_predictor = StructModule_v2(
-                virtual_embed_dim=virtual_hidden_dims[0],
-                ligand_embed_dim=ligand_hidden_dims[0],
-                hidden_dim=128
-            ) 
-        else: 
-            self.coord_loss_weight = 0.0
+        self.coord_loss_weight = 0.3 
+
+        self.structure_predictor = FlowStructureModule(
+            enhanced_virtual_embed_dim=virtual_hidden_dims[0],
+            ligand_embed_dim=ligand_hidden_dims[0],
+            hidden_dim=128,
+            num_timesteps=1000,
+            num_flow_layers=num_flow_layers,
+        )
 
         # === Enhanced components ===
         # Main regression head
@@ -148,14 +145,13 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 extreme_weight=1.6,
                 ranking_weight=0.5) 
         
-        if self.predict_str:
-            # Create combined loss function
-            self.combined_loss_fn = MultiTaskAffinityCoordinateLoss(
-                affinity_loss_fn=self.loss_fn, 
-                coord_loss_weight=self.coord_loss_weight,
-                coord_loss_type="mse",
-                lig_internal_dist_w=0 #0.1
-            )
+        # Create combined loss function
+        self.combined_loss_fn = FlowmatchingAffinityLoss(
+            affinity_loss_fn=self.loss_fn, 
+            coord_loss_weight=self.coord_loss_weight,
+            coord_loss_type="mse",
+            lig_internal_dist_w=0 #0.1
+        )
 
         self.loss_type = loss_type
     
@@ -185,10 +181,9 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 'target_affinity': affinities
             }
 
-        if self.predict_str:
-            coord_results = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
-            if coord_results['predicted_ligand_coords'] is not None:
-                results.update(coord_results)
+        coord_results = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
+        if coord_results['predicted_ligand_coords'] is not None:
+            results.update(coord_results)
         
         return results
     
@@ -220,7 +215,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
             'virtual_batch_idx': protein_batch.batch[virtual_mask],      # Batch indices
             'virtual_coords': protein_batch.x[virtual_mask],             # Grid coordinates
             'ligand_embeddings': lig_s,  # [N_ligand, embed_dim]
-            'ligand_batch_idx': ligand_batch.batch,  # Batch indices for ligands
         }      
     
     def _get_hierarchical_interaction_embeddings(self, prot_s, virtual_s, lig_s, 
@@ -313,50 +307,56 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
     def _predict_coordinates_from_shared_embeddings(self, batch, interaction_results):
         """Use enhanced virtual embeddings from shared pipeline for coordinate prediction"""
-        virtual_embeddings = interaction_results['enhanced_virtual_embeddings']  # [N_virtual, embed_dim]
-        virtual_coords = interaction_results['virtual_coords']                   # [N_virtual, 3]
-        virtual_batch_idx = interaction_results['virtual_batch_idx']             # [N_virtual]
-        
-        ligand_embeddings = interaction_results['ligand_embeddings'] 
-        ligand_batch_idx = interaction_results['ligand_batch_idx']
 
         ligand_batch = batch['ligand'].to(self.device)
         
         # Create target mask for ligand atoms
-        batch_size = ligand_batch_idx.max().item() + 1
-        max_ligand_atoms = torch.bincount(ligand_batch_idx).max().item()
+        batch_size = ligand_batch.max().item() + 1
+        max_ligand_atoms = torch.bincount(ligand_batch.batch).max().item()
         
         target_mask = torch.zeros(batch_size, max_ligand_atoms, dtype=torch.bool, device=self.device)
         for b in range(batch_size):
-            num_atoms = (ligand_batch_idx == b).sum().item()
+            num_atoms = (ligand_batch.batch == b).sum().item()
             target_mask[b, :num_atoms] = True
         
-        # Use the structure module with shared embeddings
-        pred_coords, attention_weights = self.structure_predictor(
-            virtual_embeddings=virtual_embeddings,
-            virtual_coords=virtual_coords, 
-            ligand_embeddings=ligand_embeddings,
-            virtual_batch_idx=virtual_batch_idx,
-            ligand_batch_idx=ligand_batch_idx,
-            target_mask=target_mask
-        )
+        if self.training:
+            target_coords = torch.zeros(batch_size, max_ligand_atoms, 3, device=self.device)
+            ligand_coords = ligand_batch.pos
+            coord_idx = 0
+            for b in range(batch_size):
+                num_atoms = (ligand_batch.batch == b).sum().item()
+                target_coords[b, :num_atoms] = ligand_coords[coord_idx:coord_idx + num_atoms]
+                coord_idx += num_atoms
 
-        # Get ground truth coordinates
-        target_coords = torch.zeros_like(pred_coords)
-        ligand_coords = ligand_batch.pos
-        
-        coord_idx = 0
-        for b in range(batch_size):
-            num_atoms = (ligand_batch_idx == b).sum().item()
-            target_coords[b, :num_atoms] = ligand_coords[coord_idx:coord_idx + num_atoms]
-            coord_idx += num_atoms
-        
-        return {
-            'predicted_ligand_coords': pred_coords,
-            'target_ligand_coords': target_coords,
-            'coord_attention_weights': attention_weights,
-            'coord_target_mask': target_mask
-        }
+            pred_velocity, true_velocity, pred_coords, target_coords_masked = self.structure_predictor(
+                interaction_results = interaction_results, 
+                target_mask=target_mask,
+                target_coords=target_coords,
+                training=True   
+            ) 
+
+            return {
+                    'predicted_velocity': pred_velocity,
+                    'target_velocity': true_velocity,
+
+                    'predicted_ligand_coords': pred_coords,
+                    'target_ligand_coords': target_coords_masked,
+                    'coord_target_mask': target_mask,
+
+                    'flow_matching_training': True
+                }
+        else:
+            generated_coords, _, _, _ = self.structure_predictor(
+                    interaction_results=interaction_results,  
+                    target_mask=target_mask,
+                    training=False
+                )
+                
+            return {
+                    'predicted_ligand_coords': generated_coords,
+                    'coord_target_mask': target_mask,
+                    'flow_matching_inference': True
+                }
 
     # ========================================
     # LOSS COMPUTATION AND TRAINING STEPS
@@ -364,7 +364,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
     def _compute_loss(self, results):
         """Unified loss computation for both affinity and coordinate prediction"""
-        if self.predict_str and 'predicted_ligand_coords' in results:
+        if 'predicted_velocity' in results:
             # Use combined loss function
             loss_kwargs = {
                 'pred_affinity': results['affinity'],
@@ -375,8 +375,8 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 loss_kwargs['pred_logits'] = results['logits']
             
             loss_kwargs.update({
-                'pred_coords': results['predicted_ligand_coords'],
-                'target_coords': results['target_ligand_coords'],
+                'pred_velocity': results['predicted_velocity'],
+                'target_velocity': results['target_velocity'],
                 'coord_mask': results['coord_target_mask']
             })
             
@@ -571,17 +571,15 @@ class AFFModel_ThreeBody(pl.LightningModule):
         ]
         
         # Add structure predictor parameters if enabled
-        if self.predict_str:
-            param_groups.append({
-                'params': self.structure_predictor.parameters(), 
-                'lr': self.hparams.lr
-            })
+        param_groups.append({
+            'params': self.structure_predictor.parameters(), 
+            'lr': self.hparams.lr
+        })
         
         # Add other parameters
         other_params = []
         excluded_modules = ['protein_encoder', 'virtual_encoder', 'ligand_encoder', 'regressor']
-        if self.predict_str:
-            excluded_modules.append('structure_predictor')
+        excluded_modules.append('structure_predictor')
             
         for name, param in self.named_parameters():
             if not any(module in name for module in excluded_modules):
@@ -759,6 +757,12 @@ class AFFModel_ThreeBody(pl.LightningModule):
         return lig_s
 
     
+    # def _log_predictions(self, batch, y_pred, y, stage):
+    #     for i, (pred, true) in enumerate(zip(y_pred.tolist(), y.tolist())):
+    #         # name = batch['ligand'][i].name if 'ligand' in batch and i < len(batch['ligand']) else f"{stage}_sample_{i}"
+    #         # name = batch['name'][i] if 'ligand_name' in batch else f"{stage}_sample_{i}"
+    #         name = batch.get('name', [f"{stage}_sample_{i}"])[i] if 'name' in batch else f"{stage}_sample_{i}"
+    #         self.print(f"[{stage}] {name}: True Aff = {true:.3f}, Predicted = {pred:.3f}")
     def _log_predictions(self, batch, y_pred, y, stage):
         # Flatten tensors to ensure they're always 1D
         pred_list = y_pred.flatten().tolist()

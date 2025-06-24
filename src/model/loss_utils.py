@@ -107,8 +107,7 @@ class CoordinateLoss(nn.Module):
         # Compute RMSD for logging
         rmsd = self.compute_rmsd_for_logging(pred_coords, target_coords, mask)
         
-        return loss, rmsd
-
+        return rmsd, loss
 
 class MultiTaskAffinityCoordinateLoss(nn.Module):
     """Combined loss for affinity and coordinate prediction"""
@@ -123,10 +122,12 @@ class MultiTaskAffinityCoordinateLoss(nn.Module):
         self.affinity_loss_fn = affinity_loss_fn
         self.coord_loss_weight = coord_loss_weight
         if lig_internal_dist_w > 0:
+            self.internal_prediction = True
             self.coord_loss = DistanceBasedCoordinateLoss(coord_weight=coord_loss_weight,
                                                            distance_weight=lig_internal_dist_w,
                                                            coord_loss_type=coord_loss_type)
         else:
+            self.internal_prediction = False
             self.coord_loss = CoordinateLoss(loss_type=coord_loss_type)
         
     def forward(self, pred_affinity, target_affinity, pred_logits=None, 
@@ -175,12 +176,15 @@ class MultiTaskAffinityCoordinateLoss(nn.Module):
         
         # Coordinate loss (if provided)
         if pred_coords is not None and target_coords is not None and coord_mask is not None:
-            rmsd, coord_loss, str_loss = self.coord_loss(pred_coords, target_coords, coord_mask)
+            if self.internal_prediction:
+                rmsd, coord_loss, str_loss = self.coord_loss(pred_coords, target_coords, coord_mask)
+                loss_dict['coord_loss'] = coord_loss # now this is the MSE loss
+            else:
+                rmsd, str_loss = self.coord_loss(pred_coords, target_coords, coord_mask)
             weighted_str_loss = self.coord_loss_weight * str_loss
             
             total_loss += weighted_str_loss
             loss_dict['ligand_rmsd'] = rmsd
-            loss_dict['coord_loss'] = coord_loss # now this is the MSE loss
             loss_dict['str_loss'] = weighted_str_loss
         
         loss_dict['total_loss'] = total_loss
@@ -281,14 +285,20 @@ class HuberReplacementLoss(nn.Module):
         
         # Ranking preservation
         ranking_loss = torch.tensor(0.0, device=pred_aff.device)
-        if self.ranking_weight > 0 and len(pred_aff) > 1:
+        # if self.ranking_weight > 0 and len(pred_aff) > 1:
+        #     pred_centered = pred_aff - pred_aff.mean()
+        #     target_centered = target_aff - target_aff.mean()
+        #     correlation = (pred_centered * target_centered).sum() / (
+        #         torch.sqrt((pred_centered ** 2).sum() * (target_centered ** 2).sum()) + 1e-8
+        #     )
+        #     ranking_loss = 1.0 - correlation
+        if self.ranking_weight > 0 and pred_aff.numel() > 1:  # Use .numel() instead of len()
             pred_centered = pred_aff - pred_aff.mean()
             target_centered = target_aff - target_aff.mean()
             correlation = (pred_centered * target_centered).sum() / (
                 torch.sqrt((pred_centered ** 2).sum() * (target_centered ** 2).sum()) + 1e-8
             )
-            ranking_loss = 1.0 - correlation
-        
+            ranking_loss = 1.0 - correlation 
         total_loss = weighted_huber + self.ranking_weight * ranking_loss
         # Return same format as your original loss for compatibility
         return (total_loss, weighted_huber, ranking_loss, 

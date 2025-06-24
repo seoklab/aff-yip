@@ -23,11 +23,9 @@ class LigandFeaturizer:
         self.num_bond_features = len(self.bond_type_vocab)
 
         # Determine feature dimension for empty atom list case
-        # This is a bit of a hack; ideally, Atom class is robust or features are fixed
         dummy_coords = np.array([0.0, 0.0, 0.0])
         dummy_nneighs = np.array([0,0,0,0]) # H, C, N, O counts
         try:
-            # Create a truly minimal Atom-like object for _get_atom_features if Atom class is complex
             class MinimalAtom:
                 def __init__(self, element, element_type, charge, nneighs):
                     self.element = element

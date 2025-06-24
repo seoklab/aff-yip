@@ -18,7 +18,7 @@ class ProteinFeaturizer:
         self.top_k = top_k
 
     def featurize_no_water_graph(self, protein: Protein, center=None, crop_size=None) -> Data:
-        X_res_all_coords = stack_residue_coordinates(protein) # All atom coordinates for all residues
+        X_res_all_coords, res_list = stack_residue_coordinates(protein) # All atom coordinates for all residues
         if X_res_all_coords.numel() == 0: # Handle empty protein
              return Data(x=torch.empty(0,3), node_s=torch.empty(0,6), node_v=torch.empty(0,2,3,3), edge_index=torch.empty(2,0), edge_s=torch.empty(0,32), edge_v=torch.empty(0,3))
 
@@ -82,7 +82,7 @@ class ProteinFeaturizer:
 
     def featurize_graph_with_water(self, protein: Protein, center=None, crop_size=None,
                                    rbf_D_count:int = 16, positional_emb_dim: int =16) -> Data:
-        X_res_all_coords = stack_residue_coordinates(protein) # All atom coordinates for all residues
+        X_res_all_coords, res_list = stack_residue_coordinates(protein) # All atom coordinates for all residues
         if X_res_all_coords.numel() == 0 and not protein.read_water: # Handle empty protein
              return None 
             #  return Data(x=torch.empty(0,3), node_type=torch.empty(0, dtype=torch.long), node_s=torch.empty(0,6), node_v=torch.empty(0,2,3,3), edge_index=torch.empty(2,0), edge_s=torch.empty(0,32), edge_v=torch.empty(0,3))
@@ -217,8 +217,39 @@ class ProteinFeaturizer:
         rbf_D_count: int = 16, # Default RBF count
         positional_emb_dim: int = 16 # Default positional embedding dimension
     ) -> Data:
-        X_res_all = stack_residue_coordinates(protein_w_water) # this already excludes water
-        X_res_ca = X_res_all[1::3] 
+        X_res_all, res_list = stack_residue_coordinates(protein_w_water) # this already excludes water
+        # get sidechain atom coordinates - THIS PART NEEDS TO BE CHECKED. 
+        X_sidechain_all = []
+        sidechain_lens = []  
+        for residue in res_list:
+            coords = []
+            for atm in residue.atoms:
+                coords.append(atm.coordinates)
+            if coords:
+                coords = np.stack(coords)
+            else:
+                coords = np.empty((0, 3))
+            X_sidechain_all.append(torch.from_numpy(coords).float())
+            sidechain_lens.append(coords.shape[0])
+
+        # Padding - fit longest sidechain (shape: [N_residues, max_atoms, 3])
+        max_atoms = max(sidechain_lens)
+        N_residues = len(res_list)
+        X_sidechain_padded = torch.zeros((N_residues, max_atoms, 3), dtype=torch.float32)
+
+        for i, coords in enumerate(X_sidechain_all):
+            if coords.shape[0] > 0:
+                X_sidechain_padded[i, :coords.shape[0], :] = coords
+
+        # mask for padding (0: padded) 
+        X_sidechain_mask = torch.zeros((N_residues, max_atoms), dtype=torch.bool)
+        for i, length in enumerate(sidechain_lens):
+            if length > 0:
+                X_sidechain_mask[i, :length] = 1
+
+        # ca atoms
+        X_res_ca = X_res_all[1::3]  # assuming every 3rd atom is CA 
+        # X_res_ca shape: torch.Size([807, 3]) / X_sidechain_padded shape: torch.Size([807, 14, 3])
         X_water= stack_water_coordinates(protein_w_water)
         has_water = X_water is not None and X_water.numel() > 0
         if ligand_for_vn is not None: 
@@ -361,23 +392,16 @@ class ProteinFeaturizer:
             num_virtual_nodes_in_graph = X_virtual.size(0)
             # Ensure indexing doesn't go out of bounds if node_s became smaller than expected
             if feature_mask.size(0) >= num_virtual_nodes_in_graph:
-                 feature_mask[-num_virtual_nodes_in_graph:, 1:] = 0 # Virtual nodes only have first scalar feature valid (occupancy)
-        # printing first few rows of each tensor for debugging
-        # print("First few rows of tensors:")
-        # print("X_all_coords:", X_all[:5])
-        # print("node_type:", node_type[:5])
-        # print("node_s:", node_s[:5])
-        # print("node_v:", node_v[:5])
-        # print("edge_index:", edge_index[:,:5])
-        # print("edge_s:", edge_s[:5])
-        # print("edge_v:", edge_v[:5])
-        # Return Data object with all features
+                 feature_mask[-num_virtual_nodes_in_graph:, 1:] = 0 # Virtual nodes only have first scalar feature valid (occupancy) 
         return Data(
             x=X_all, node_type=node_type,
             node_s=torch.nan_to_num(node_s), feature_mask=feature_mask,
             node_v=torch.nan_to_num(node_v),
             edge_s=torch.nan_to_num(edge_s), edge_v=torch.nan_to_num(edge_v),
-            edge_index=edge_index
+            edge_index=edge_index, 
+            res_list=res_list, # Include residue list for reference
+            X_sidechain_padded=X_sidechain_padded, # Include padded sidechain coordinates
+            X_sidechain_mask=X_sidechain_mask # Include sidechain mask for padding
         )
 
     def featurize_graph_with_only_virtual_nodes(
@@ -391,7 +415,7 @@ class ProteinFeaturizer:
         rbf_D_count: int = 16, # Default RBF count
         positional_emb_dim: int = 16 # Default positional embedding dimension
     ) -> Data:
-        X_res_all = stack_residue_coordinates(protein_w_water) # this already excludes water
+        X_res_all, res_list = stack_residue_coordinates(protein_w_water) # this already excludes water
         X_res_ca = X_res_all[1::3] 
         X_water= stack_water_coordinates(protein_w_water)
         has_water = X_water is not None and X_water.numel() > 0

@@ -64,6 +64,7 @@ def get_positional_embeddings(edge_index, num_embeddings=None):
 def stack_residue_coordinates(protein_obj: Protein) -> torch.Tensor:
     num_residues = len(protein_obj.residues)
     protein_coords_list = []
+    residue_s = []
     for residue in protein_obj.residues:
         if residue.is_ligand:
             num_residues -= 1 # Skip water or ligand residues
@@ -77,14 +78,14 @@ def stack_residue_coordinates(protein_obj: Protein) -> torch.Tensor:
                 f"Residue {residue} in protein {protein_obj.name} "
                 "is missing one or more backbone atoms (N, CA, C) required for dihedral calculation."
             )
+        residue_s.append(residue)
 
         protein_coords_list.append(torch.tensor(n_atom.coordinates, dtype=torch.float32))
         protein_coords_list.append(torch.tensor(ca_atom.coordinates, dtype=torch.float32))
         protein_coords_list.append(torch.tensor(c_atom.coordinates, dtype=torch.float32))
     
     X_protein_flat = torch.stack(protein_coords_list)
-
-    return X_protein_flat
+    return X_protein_flat, residue_s
 
 
 def stack_water_coordinates(protein_obj: Protein) -> torch.Tensor:
