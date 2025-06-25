@@ -251,7 +251,7 @@ def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
                         opt=None,
                         gridout=None):
     if opt is None:
-        opt = GridOption(padding=6.0, gridsize=1.0, option='ligand', clash=1.8, shellsize=7.0)
+        opt = GridOption(padding=5.0, gridsize=1.0, option='ligand', clash=1.8, shellsize=7.0)
     if only_backbone: 
         # xyzs_rec = stack_residue_coordinates(receptor)
         xyzs_rec = receptor.get_ncaccb_coordinates() 
