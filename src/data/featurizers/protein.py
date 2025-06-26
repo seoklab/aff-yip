@@ -202,6 +202,7 @@ class ProteinFeaturizer:
         ligand_for_vn: Ligand = None, # Optional ligand for virtual node generation
         center=None,
         crop_size=None,
+        include_explicit_water: bool = True, # Whether to include explicit water in the graph
         target_name: str = None, # Optional target name for logging
         rbf_D_count: int = 16, # Default RBF count
         positional_emb_dim: int = 16 # Default positional embedding dimension
@@ -213,8 +214,11 @@ class ProteinFeaturizer:
         for residue in res_list:
             coords = []
             for atm in residue.atoms:
-                if atm.name not in ['N', 'CA', 'C']:  # Exclude backbone atoms
-                    coords.append(atm.coordinates)
+                if atm.name not in ['N', 'CA', 'C', 'O']:  # Exclude backbone atoms
+                    if atm.name in ['CB', 'CD', 'CD1', 'CD2', 'CE', 'CE1', 'CE2', 'CE3', 'CG', 'CG1', 'CG2', 'CH2',
+                                    'CZ', 'CZ2', 'CZ3', 'ND1', 'ND2', 'NE', 'NE1', 'NE2', 'NH1', 'NH2', 'NZ', 'OD1',
+                                    'OD2', 'OE1','OE2', 'OG', 'OG1', 'OH', 'SD']:
+                        coords.append(atm.coordinates)
             if coords:
                 coords = np.stack(coords)
             else:
@@ -223,7 +227,8 @@ class ProteinFeaturizer:
             sidechain_lens.append(coords.shape[0])
 
         # Padding - fit longest sidechain (shape: [N_residues, max_atoms, 3])
-        max_atoms = max(sidechain_lens)
+        # max_atoms = max(sidechain_lens)
+        max_atoms = 10 
         N_residues = len(res_list)
         X_sidechain_padded = torch.zeros((N_residues, max_atoms, 3), dtype=torch.float32)
 
@@ -243,21 +248,27 @@ class ProteinFeaturizer:
         X_water= stack_water_coordinates(protein_w_water)
         has_water = X_water is not None and X_water.numel() > 0
         if ligand_for_vn is not None: 
-            virtual_nodes_list = generate_virtual_nodes(protein_wo_water, ligand_for_vn, only_backbone=True) # clash N,CA,C,CB
+            virtual_nodes_list = generate_virtual_nodes(protein_wo_water, ligand_for_vn, only_backbone=True) # clash N,CA,C,O
         else:
-            virtual_nodes_list = generate_virtual_nodes(protein_wo_water, ligand, only_backbone=True) # clash N,CA,C,CB
+            virtual_nodes_list = generate_virtual_nodes(protein_wo_water, ligand, only_backbone=True) # clash N,CA,C,O
         if virtual_nodes_list: # Check if list is not empty
+            virtual_nodes_keep_list = []
             if target_name:
                 filepath = f'/home.galaxy4/j2ho/projects/aff-yip/vn_temp/{target_name}.pdb'
                 # write_virtual_nodes_pdb(virtual_nodes_list, filepath=filepath, element='C', chain_id='X')
-            X_virtual = torch.from_numpy(np.stack([v.coordinates for v in virtual_nodes_list])).float()
+            if has_water:
+                for v_node in virtual_nodes_list:
+                    v_node.set_water_occupancy(X_water, cutoff_distance=4) 
+                    if hasattr(v_node, 'water_occupancy'):
+                        if v_node.water_occupancy >= 0.01:
+                            virtual_nodes_keep_list.append(v_node) 
+                X_virtual = torch.from_numpy(np.stack([v.coordinates for v in virtual_nodes_keep_list])).float()
+            else:
+                X_virtual = torch.empty((0,3), dtype=torch.float32)
         else:
             X_virtual = torch.empty((0,3), dtype=torch.float32)
-        # Water occupancy for virtual nodes (if applicable from your VirtualNode structure)
-        if has_water:
-            for v_node in virtual_nodes_list:
-                v_node.set_water_occupancy(X_water) 
 
+        virtual_nodes_list = virtual_nodes_keep_list if virtual_nodes_keep_list else [] # Ensure it's a list, even if empty
         # Initial indices
         original_res_indices = torch.arange(X_res_ca.size(0))
         original_virtual_indices = torch.arange(X_virtual.size(0))
@@ -286,15 +297,18 @@ class ProteinFeaturizer:
         # now X_res_ca, X_water, X_virtual are cropped based on the mask
         # Concatenate all coordinates for graph
         X_all_coords_list = [X_res_ca]
-        if has_water: X_all_coords_list.append(X_water)
+        if has_water and include_explicit_water: 
+            X_all_coords_list.append(X_water)
         if X_virtual.numel() > 0: X_all_coords_list.append(X_virtual)
         if not X_all_coords_list or all(c.numel()==0 for c in X_all_coords_list): # All components are empty
             return Data(x=torch.empty(0,3), node_type=torch.empty(0, dtype=torch.long), node_s=torch.empty(0,6), node_v=torch.empty(0,2,3,3), edge_index=torch.empty(2,0), edge_s=torch.empty(0,32), edge_v=torch.empty(0,3), feature_mask=torch.empty(0,6))
         X_all = torch.cat(X_all_coords_list, dim=0) # Concatenate all coordinates
         # Node types
         node_type_list = [torch.zeros(X_res_ca.size(0), dtype=torch.long)]
-        if has_water: node_type_list.append(torch.ones(X_water.size(0), dtype=torch.long))
-        if X_virtual.numel() > 0: node_type_list.append(2 * torch.ones(X_virtual.size(0), dtype=torch.long))
+        if has_water and include_explicit_water: 
+            node_type_list.append(2 * torch.ones(X_water.size(0), dtype=torch.long))
+        if X_virtual.numel() > 0: 
+            node_type_list.append(torch.ones(X_virtual.size(0), dtype=torch.long))
         node_type = torch.cat([nt for nt in node_type_list if nt.numel() > 0])
         # Node scalar features
         node_s_all_residues = get_residue_dihedrals(X_res_all) # From original, uncropped full atom protein
@@ -305,7 +319,7 @@ class ProteinFeaturizer:
             node_s_res = torch.cat([node_s_res, node_aa_features], dim=1) if node_s_res.numel() > 0 else node_aa_features
         node_s_list = [node_s_res]
         num_scalar_features = node_s_res.size(1) # if node_s_res.numel() > 0 else 6 # Default from dihedrals
-        if has_water > 0:
+        if has_water and include_explicit_water:
             node_s_water = get_water_embeddings(X_water, num_embeddings=num_scalar_features)
             node_s_list.append(node_s_water)
         if X_virtual.numel() > 0:
@@ -318,6 +332,7 @@ class ProteinFeaturizer:
             else: # If no occupancy data, default to zeros ??? 
                  virtual_occupancies = torch.zeros(X_virtual.size(0), 1, dtype=torch.float32)
             node_s_virtual_padding = torch.zeros(X_virtual.size(0), num_scalar_features - 1)
+            
             node_s_virtual = torch.cat([virtual_occupancies, node_s_virtual_padding], dim=1)
             node_s_list.append(node_s_virtual)
         node_s = torch.cat([ns for ns in node_s_list if ns.numel() > 0], dim=0) if any(ns.numel() > 0 for ns in node_s_list) else torch.empty((0, num_scalar_features))
@@ -342,7 +357,7 @@ class ProteinFeaturizer:
         feats_dim = node_v_res.size(2) # if node_v_res.numel() > 0 else default_vec_dim
 
         node_v_list = [node_v_res]
-        if has_water:
+        if has_water and include_explicit_water:
             node_v_list.append(torch.zeros(X_water.size(0), num_feats, feats_dim)) # Water nodes typically have no orientation
         if X_virtual.numel() > 0:
             node_v_list.append(torch.zeros(X_virtual.size(0), num_feats, feats_dim)) # Virtual nodes have no orientation
@@ -380,6 +395,7 @@ class ProteinFeaturizer:
             if feature_mask.size(0) >= num_virtual_nodes_in_graph:
                  feature_mask[-num_virtual_nodes_in_graph:, 1:] = 0 # Virtual nodes only have first scalar feature valid (occupancy) 
         # print (f'protein node count: {X_res_ca.size(0)}, water node count: {X_water.size(0)}, virtual node count: {X_virtual.size(0)}')
+        # print (f'X_all shape: {X_all.shape}, node_type shape: {node_type.shape}, node_s shape: {node_s.shape}, node_v shape: {node_v.shape}, edge_index shape: {edge_index.shape}, edge_s shape: {edge_s.shape}, edge_v shape: {edge_v.shape}')
         # print (f'sidechain padded shape: {X_sidechain_padded.shape}, sidechain mask shape: {X_sidechain_mask.shape}')
         return Data(
             x=X_all, node_type=node_type,
