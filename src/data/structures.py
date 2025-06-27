@@ -133,22 +133,35 @@ class Protein:
         xyz = np.concatenate(xyz)
         return xyz
     
-    def get_ncaccb_coordinates(self):
-        """Get the coordinates of N, CA, C, CB atoms in the protein."""
-        ncaccb_coords = []
+    def get_ncaco_coordinates(self):
+        """Get the coordinates of N, CA, C, O atoms in the protein."""
+        ncaco_coords = []
         for residue in self.residues:
             if residue.is_water or (self.excl_aa_types and residue.res_name in self.excl_aa_types):
                 continue
             n_atom = residue.get_atom('N')
             ca_atom = residue.get_ca()
             c_atom = residue.get_atom('C')
-            cb_atom = residue.get_cb()
-            for atom in [n_atom, ca_atom, c_atom, cb_atom]:
+            o_atom = residue.get_atom('O')
+            for atom in [n_atom, ca_atom, c_atom, o_atom]:
                 if atom is not None:
-                    ncaccb_coords.append(atom.coordinates)
+                    ncaco_coords.append(atom.coordinates)
 
-        return np.stack(ncaccb_coords)
-
+        return np.stack(ncaco_coords)
+    
+    def get_sidechain_info(self): 
+        sidechain_info = {} 
+        for residue in self.residues:
+            sidechain_coords = {} 
+            if residue.is_water or (self.excl_aa_types and residue.res_name in self.excl_aa_types):
+                continue
+            for atom in residue.atoms:
+                if atom.name in ['N', 'CA', 'C', 'O']:
+                    continue
+                sidechain_coords[atom.name] = atom.coordinates
+            sidechain_info[str(residue)] = sidechain_coords
+        return sidechain_info
+ 
     def get_water_coordinates(self):
         """Get the coordinates of water molecules in the protein."""
         water_coords = []

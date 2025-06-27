@@ -85,7 +85,7 @@ def stack_residue_coordinates(protein_obj: Protein) -> torch.Tensor:
         protein_coords_list.append(torch.tensor(c_atom.coordinates, dtype=torch.float32))
     
     X_protein_flat = torch.stack(protein_coords_list)
-    return X_protein_flat, residue_s
+    return X_protein_flat # residue_s
 
 
 def stack_water_coordinates(protein_obj: Protein) -> torch.Tensor:
@@ -251,7 +251,7 @@ def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
                         opt=None,
                         gridout=None):
     if opt is None:
-        opt = GridOption(padding=5.0, gridsize=1.0, option='ligand', clash=1.8, shellsize=7.0)
+        opt = GridOption(padding=5.0, gridsize=1.0, option='ligand', clash=1.8, shellsize=6.0)
     if only_backbone: 
         # xyzs_rec = stack_residue_coordinates(receptor)
         xyzs_rec = receptor.get_ncaco_coordinates() 

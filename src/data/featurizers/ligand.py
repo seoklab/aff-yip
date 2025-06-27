@@ -67,7 +67,7 @@ class LigandFeaturizer:
         bond_idx = self.bond_type_to_index.get(bond_type_str, self.bond_type_to_index['UNK_BOND'])
         return F.one_hot(torch.tensor(bond_idx), num_classes=len(self.bond_type_vocab)).float()
 
-    def featurize_graph(self, ligand: Ligand) -> Data:
+    def featurize_graph(self, ligand: Ligand, center=None) -> Data:
         """
         Featurize ligand into GVP-compatible format with proper attribute names
         """
@@ -77,6 +77,15 @@ class LigandFeaturizer:
 
         # Get basic features
         pos = torch.tensor(ligand.get_coordinates(), dtype=torch.float32)
+        # print first few coords
+        if center is not None: 
+            # move coordinates to center, if center is 0,0,0 and current ligand center is 50,50,50 I want lig center to go to given center
+            pos = pos - pos.mean(dim=0)  # Center around origin
+            # If center is provided, adjust coordinates
+            # Example: if center is [0, 0, 0], pos = pos - pos.mean(dim=0) + center
+            # This centers the ligand around the origin
+            # If center is a list or tuple, convert to tensor
+            pos = pos + center
         node_features_list = [self._get_atom_features(atom) for atom in ligand.atoms]
         x = torch.stack(node_features_list)
 

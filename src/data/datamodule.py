@@ -4,6 +4,7 @@ import json
 import os
 import pytorch_lightning as pl
 from torch_geometric.loader import DataLoader as PyGDataLoader
+from torch.utils.data import DataLoader as PyGDataLoader
 from torch_geometric.data import Batch
 import torch_geometric
 import torch 
@@ -201,8 +202,9 @@ class RLADataModule(pl.LightningDataModule):
         else:
             raise ValueError(f"Unsupported metadata file format: {ext} for {meta_filepath}. Please use .csv or .json.")
 
+
     @staticmethod
-    def safe_collate_fn(batch, error_log_path='bad_samples.txt'):
+    def safe_collate_fn_old(batch, error_log_path='bad_samples.txt'):
         batch = [x for x in batch if x is not None]
         # batch = [x for x in batch if x is not None and not x.get('skip', False)]
         if len(batch) == 0:
@@ -229,6 +231,7 @@ class RLADataModule(pl.LightningDataModule):
                     collated[key] = Batch.from_data_list(values)
                 except Exception as e:
                     names = [getattr(d, 'name', f"<no_name_{i}>") for i, d in enumerate(values)]
+
                     print(f"[Collate] Skipping batch for key '{key}' due to DataList error: {e}")
                     print(f"         Affected samples: {names}")
                     _log_bad_samples(names, error_log_path)
@@ -247,6 +250,20 @@ class RLADataModule(pl.LightningDataModule):
                     return None
         return collated
         
+    @staticmethod
+    def safe_collate_fn(batch, error_log_path='bad_samples.txt'):
+        """
+        Custom collate function that handles sidechain_maps properly.
+        Each sample has different residue keys, so we keep sidechain_maps as a list.
+        """
+        batch_samples, batch_sidechain_maps = zip(*batch)
+
+        collated = RLADataModule.safe_collate_fn_old(batch_samples, error_log_path=error_log_path)
+        # Re-insert the list of sidechain_maps safely
+        collated['sidechain_map'] = list(batch_sidechain_maps)
+        
+        return collated
+    
     def setup(self, stage: str = None):
         # ... (setup logic remains the same, it will use the loaded targets)
         if stage == 'fit' or stage is None:
