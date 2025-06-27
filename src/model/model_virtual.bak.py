@@ -1,28 +1,33 @@
-# in src/model/model_threebody_virtual.py
+# in src/model/multi_three.py
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 import torch.bin
-
+from torch_geometric.data import Batch
 from torch_geometric.nn.pool import graclus
 from torch_scatter import scatter_mean
 from src.model.gvp_encoder import GVPGraphEncoderHybrid as GVPGraphEncoder
+from src.model.my_modules import GridBasedStructModulePadded as GridBasedStructModule
+from src.model.my_modules import PairwiseAttentionStructModule as StructModule
+from src.model.my_modules import VectorizedPairwiseAttentionStructModule as StructModule_v2
 from src.model.my_modules import DirectCoordinatePredictor as SimpleStructModule
 from .loss_utils import MultiTaskAffinityCoordinateLoss
-from .loss_utils import AffHuberLoss as AffinityLoss
+from .loss_utils import HuberReplacementLoss as AffinityLoss
 
-class AFFModel_TwoBody(pl.LightningModule):
+class AFFModel_ThreeBody(pl.LightningModule):
     def __init__(self,
                  protein_node_dims=(26, 3), # 6 dihedral angles + 20 amino acid types & 3 vectors
+                 virtual_node_dims=(26, 3), # 1 water occupancy + padding & 3 vectors (now zero vectors)
                  protein_edge_dims=(41, 1), # 41 edge scalar & 1 edge vector (simply X1-X2 norm vector)
                  ligand_node_dims=(46, 0), # 46 ligand atom types & 0 vectors
                  ligand_edge_dims=(9, 0), # 9 edge scalar & 0 edge vector 
                  protein_hidden_dims=(196, 16),
+                 virtual_hidden_dims=(196, 3),
                  ligand_hidden_dims=(196, 3),
                  num_gvp_layers=3,
                  dropout=0.1,
                  lr=1e-3,
-                 interaction_mode="cross_attention",
+                 interaction_mode="hierarchical",
                  predict_str=False,
                  loss_type="single",  # single: no classification head
                  loss_params=None):  
@@ -34,13 +39,13 @@ class AFFModel_TwoBody(pl.LightningModule):
         self.predict_str = predict_str
         
         # Encoders
-
-        self.protein_encoder = GVPGraphEncoder(
+        self.protein_virtual_encoder = GVPGraphEncoder(
             node_dims=protein_node_dims,
             edge_dims=protein_edge_dims,
             hidden_dims=protein_hidden_dims,
             num_layers=num_gvp_layers,
-        )
+            drop_rate=dropout
+        ) 
         
         self.ligand_encoder = GVPGraphEncoder(
             node_dims=ligand_node_dims,
@@ -53,21 +58,20 @@ class AFFModel_TwoBody(pl.LightningModule):
         # Three-Body Interaction Modules
         embed_dim = protein_hidden_dims[0]
         
-        if interaction_mode == "cross_attention":
-            # Cross-attention between protein and ligand
-            self.protein_ligand_attn = nn.MultiheadAttention(
+        if interaction_mode == "hierarchical":
+            self.protein_vn_attn = nn.MultiheadAttention(
                 embed_dim=embed_dim, num_heads=4, batch_first=True
             )
-            self.ligand_protein_attn = nn.MultiheadAttention(
+            self.complex_ligand_attn = nn.MultiheadAttention(
                 embed_dim=embed_dim, num_heads=4, batch_first=True
             )
-            # Fusion layer for attended representations
-            self.pl_fusion = nn.Sequential(
+            self.pv_fusion = nn.Sequential(
                 nn.Linear(embed_dim * 2, embed_dim),
                 nn.ReLU(),
                 nn.Dropout(dropout),
                 nn.Linear(embed_dim, embed_dim)
             )
+        
         # Structure Prediction Setups
         if predict_str:
             self.coord_loss_weight = 0.4 
@@ -95,6 +99,7 @@ class AFFModel_TwoBody(pl.LightningModule):
         
         # Additional heads for multitask: classification and regression
         if loss_type == "multitask":
+            # self.thresholds = [-3, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]
             self.thresholds = [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0]
             class_num = len(self.thresholds) + 1  # +1 for the "extreme" class
             self.classification_head = nn.Sequential(
@@ -122,7 +127,7 @@ class AFFModel_TwoBody(pl.LightningModule):
         
         if loss_type == "multitask":
             from src.model.loss_utils import WeightedCategoryLoss_v2
-            self.aff_loss_fn = WeightedCategoryLoss_v2(
+            self.loss_fn = WeightedCategoryLoss_v2(
                     thresholds = self.thresholds, 
                     regression_weight=0.75,
                     category_penalty_weight=0.15,
@@ -133,14 +138,15 @@ class AFFModel_TwoBody(pl.LightningModule):
                     extreme_boost_high=1.4
                 )
         elif loss_type == "single":
-            self.aff_loss_fn = AffinityLoss(
+            self.loss_fn = AffinityLoss(
                 delta=0.5,
                 extreme_weight=1.6,
                 ranking_weight=0.5) 
         
         if self.predict_str:
+            # Create combined loss function
             self.combined_loss_fn = MultiTaskAffinityCoordinateLoss(
-                affinity_loss_fn=self.aff_loss_fn, 
+                affinity_loss_fn=self.loss_fn, 
                 coord_loss_weight=self.coord_loss_weight,
                 coord_loss_type="mse",
                 lig_internal_dist_w=0 #0.1
@@ -183,125 +189,167 @@ class AFFModel_TwoBody(pl.LightningModule):
     
     def get_embeddings(self, batch):
         """Get embeddings before final prediction (for multi-task learning)"""
-        protein_batch = batch['protein_only'].to(self.device)
+        protein_virtual_batch = batch['protein_virtual'].to(self.device)
         ligand_batch = batch['ligand'].to(self.device)
 
-        X_sidechain_padded = protein_batch.X_sidechain_padded.to(self.device)  # [B, N_prot, N_sidechain_max, 3]
-        X_sidechain_mask = protein_batch.X_sidechain_mask.to(self.device)  # [B, N_prot, N_sidechain_max]
-          
-        # Step1: Process prot /lig component
-        prot_s, prot_v = self._process_protein_nodes(protein_batch)
+        X_sidechain_padded = protein_virtual_batch.X_sidechain_padded.to(self.device)  # [B, N_prot, N_sidechain_max, 3]
+        X_sidechain_mask = protein_virtual_batch.X_sidechain_mask.to(self.device)  # [B, N_prot, N_sidechain_max]
+        res_list = protein_virtual_batch.res_list  # Residue list for reference
+  
+        # Split protein and water nodes
+        protein_mask = protein_virtual_batch.node_type == 0
+        # water_mask = protein_batch.node_type == 1
+        virtual_mask = protein_virtual_batch.node_type == 2
+        
+        # Step1: Process prot-virtual /lig component
+        prot_s, prot_v, virtual_s, virtual_v = self._process_protein_and_virtual_nodes(protein_virtual_batch, protein_mask, virtual_mask)
         lig_s = self._process_ligand_nodes(ligand_batch)
 
-        # Step3: Get interaction embeddings 
-        complex_embeddings, ligand_embeddings_after_interaction, protein_embeddings_after_interaction = self._get_pl_interaction_embeddings(
-            prot_s, lig_s, 
-            protein_batch_idx=protein_batch.batch, 
+        # Step2: Pool virtual nodes 
+        virtual_coords_initial = protein_virtual_batch.x[virtual_mask]
+        virtual_batch_idx_initial = protein_virtual_batch.batch[virtual_mask]
+        v2v_edge_index = self._get_virtual_subgraph(protein_virtual_batch, virtual_mask)
+
+        virtual_s, virtual_coords, virtual_batch_idx = self._pool_virtual_nodes(
+            s=virtual_s, 
+            coords=virtual_coords_initial, 
+            edge_index=v2v_edge_index,
+            batch_idx=virtual_batch_idx_initial)
+        
+        # Step3: Get interaction embeddings (before regression)
+        complex_embeddings, virtual_embeddings_enhanced, protein_embeddings_enhanced = self._get_hierarchical_interaction_embeddings(
+            prot_s, virtual_s, lig_s, 
+            protein_batch_idx=protein_virtual_batch.batch[protein_mask], 
+            virtual_batch_idx=virtual_batch_idx,
             ligand_batch_idx=ligand_batch.batch
         )
         
         return {
             'complex_embedding': complex_embeddings,           # [B, embed_dim] for affinity
-            'ligand_embeddings_f': ligand_embeddings_after_interaction,  # [N_ligand, embed_dim]
+            'enhanced_virtual_embeddings': virtual_embeddings_enhanced,  # [N_virtual, embed_dim] for coords
+            'virtual_batch_idx': virtual_batch_idx,   # Pooled index
+            'virtual_coords': virtual_coords,          # Grid coordinates
+            'ligand_embeddings': lig_s,  # [N_ligand, embed_dim]
             'ligand_batch_idx': ligand_batch.batch,  # Batch indices for ligands
-            'protein_batch_idx': protein_batch.batch,  
-            'protein_embeddings_f': protein_embeddings_after_interaction,  # [N_protein, embed_dim]
-            'backbone_coords': protein_batch.x,
+            'protein_batch_idx': protein_virtual_batch.batch[protein_mask],  # ← FIX: Only protein nodes
+            'enhanced_protein_embeddings': protein_embeddings_enhanced,  # [N_protein, embed_dim]
+            'backbone_coords': protein_virtual_batch.x[protein_mask],
+            'res_list': res_list,  # Residue list for reference
             'X_sidechain_padded': X_sidechain_padded,  # [B, N_prot, N_sidechain_max, 3]
             'X_sidechain_mask': X_sidechain_mask,      # [B, N_prot, N_sidechain_max]
         }      
     
-    def _get_pl_interaction_embeddings(self, prot_s, lig_s, 
-                                                      protein_batch_idx, ligand_batch_idx):
+    def _get_hierarchical_interaction_embeddings(self, prot_s, virtual_s, lig_s, 
+                                                      protein_batch_idx, virtual_batch_idx, ligand_batch_idx):
+        """Get_embeddings-Step3: Hierarchical interaction but track virtual embeddings for coordinate prediction"""
         
         # Get batch information
         prot_batch_sizes = torch.bincount(protein_batch_idx).tolist() if protein_batch_idx.numel() > 0 else []
+        virtual_batch_sizes = torch.bincount(virtual_batch_idx).tolist() if virtual_batch_idx.numel() > 0 else []
         lig_batch_sizes = torch.bincount(ligand_batch_idx).tolist()
 
         # Split by batch
         prot_s_list = torch.split(prot_s, prot_batch_sizes) if prot_s.size(0) > 0 else []
+        virtual_s_list = torch.split(virtual_s, virtual_batch_sizes) if virtual_s.size(0) > 0 else []
         lig_s_list = torch.split(lig_s, lig_batch_sizes)
         
         complex_embeddings = []
-        ligand_embeddings_after_interaction = []
+        virtual_embeddings_after_interaction = []
         protein_embeddings_after_interaction = []
         batch_size = len(lig_s_list)
 
         for i in range(batch_size):
             l = lig_s_list[i]
             p = prot_s_list[i] if i < len(prot_s_list) else torch.empty(0, self.hparams.protein_hidden_dims[0], device=self.device)
+            v = virtual_s_list[i] if i < len(virtual_s_list) else torch.empty(0, self.hparams.protein_hidden_dims[0], device=self.device)
+            
             # Hierarchical interaction with virtual tracking
-            complex_emb, ligand_after_interaction, protein_after_interaction = self._cross_attention_interaction(p, l)
-            complex_embeddings.append(complex_emb) # [embed_dim]
-            ligand_embeddings_after_interaction.append(ligand_after_interaction) # [N_ligand, embed_dim]
-            protein_embeddings_after_interaction.append(protein_after_interaction) # [N_protein, embed_dim]
+            complex_emb, virtual_after_interaction, protein_after_interaction = self._hierarchical_interaction_with_virtual(p, v, l)
+            
+            complex_embeddings.append(complex_emb)
+            virtual_embeddings_after_interaction.append(virtual_after_interaction)
+            protein_embeddings_after_interaction.append(protein_after_interaction)
         
         # Stack results
         complex_embeddings = torch.stack(complex_embeddings)  # [B, embed_dim]
+        
+        # Concatenate virtual embeddings (maintaining batch order)
+        if virtual_embeddings_after_interaction and all(v.size(0) > 0 for v in virtual_embeddings_after_interaction):
+            virtual_embeddings_enhanced = torch.cat(virtual_embeddings_after_interaction, dim=0)
+        else:
+            virtual_embeddings_enhanced = virtual_s  # Fallback to input
         
         # Concatenate protein embeddings (maintaining batch order)
         if protein_embeddings_after_interaction and all(p.size(0) > 0 for p in protein_embeddings_after_interaction):
             protein_embeddings_after_interaction = torch.cat(protein_embeddings_after_interaction, dim=0)
         else:
             protein_embeddings_after_interaction = prot_s
+        # print (f"Protein embeddings after interaction shape: {protein_embeddings_after_interaction.shape}")
+        # print (f"Virtual embeddings after interaction shape: {virtual_embeddings_enhanced.shape}") 
+        return complex_embeddings, virtual_embeddings_enhanced, protein_embeddings_after_interaction
 
-        # Concatenate ligand embeddings (maintaining batch order)
-        if ligand_embeddings_after_interaction and all(l.size(0) > 0 for l in ligand_embeddings_after_interaction):
-            ligand_embeddings_after_interaction = torch.cat(ligand_embeddings_after_interaction, dim=0)
-        else:
-            ligand_embeddings_after_interaction = lig_s
-
-        return complex_embeddings, ligand_embeddings_after_interaction, protein_embeddings_after_interaction
-
-    def _cross_attention_interaction(self, p, l):
+    def _hierarchical_interaction_with_virtual(self, p, v, l):
+        """Hierarchical: (P+V) -> complex -> interact with L"""
         embed_dim = self.hparams.protein_hidden_dims[0]
         
         # Step 1: Protein-VirtualNode interaction (if both exist)
-        if p.size(0) > 0 and l.size(0) > 0:
+        if p.size(0) > 0 and v.size(0) > 0:
+            # Cross-attention between protein and virtual nodes
             p_batch = p.unsqueeze(0)  # [1, N_p, D]
-            l_batch = l.unsqueeze(0)  # [1, N_l, D]
-            # Ligand attends to protein
-            l_enhanced, _ = self.protein_ligand_attn(l_batch, p_batch, p_batch)  # [1, N_l, D]
-            ligand_after_interaction = l_enhanced.squeeze(0)  # [N_l, D]
-            l_pooled = l_enhanced.mean(dim=1)  # [1, D]
-            # Protein attends to ligand
-            p_enhanced, _ = self.ligand_protein_attn(p_batch, l_batch, l_batch)  # [1, N_p, D]
-            protein_after_interaction = p_enhanced.squeeze(0)  # [N_p, D]
+            v_batch = v.unsqueeze(0)  # [1, N_v, D]
+            
+            # virtual node attends to protein, protein attends to virtual node
+            v_enhanced, _ = self.protein_vn_attn(v_batch, p_batch, p_batch)  # [1, N_v, D]
+            p_enhanced, _ = self.protein_vn_attn(p_batch, v_batch, v_batch)  # [1, N_p, D]
+            
+            # Pool and fuse for complex representation
             p_pooled = p_enhanced.mean(dim=1)  # [1, D]
+            v_pooled = v_enhanced.mean(dim=1)  # [1, D]
+            
+            pv_combined = torch.cat([p_pooled, v_pooled], dim=-1)  # [1, 2*D]
+            complex_repr = self.pv_fusion(pv_combined).unsqueeze(1)  # [1, 1, D]
+            
+            virtual_after_interaction = v_enhanced.squeeze(0)  # [N_v, D]
+            protein_after_interaction = p_enhanced.squeeze(0)  # [N_p, D]
 
-            # concat all embeddings and linear
-            pl_combined = torch.cat([p_pooled, l_pooled], dim=-1) # [1, 2*D]
-            final_repr = self.pl_fusion(pl_combined)  # [1, 1, D]
         elif p.size(0) > 0:
-            # Only protein present
-            p_pooled = p.mean(dim=0, keepdim=True).unsqueeze(0)  # [1, 1, D]
-            # Use zero ligand representation
-            l_zero = torch.zeros(1, embed_dim, device=self.device).unsqueeze(0)  # [1, 1, D]
-            pl_combined = torch.cat([p_pooled.squeeze(1), l_zero.squeeze(1)], dim=-1)  # [1, 2*D]
-            final_repr = self.pl_fusion(pl_combined)  # [1, D]
-            
-        elif l.size(0) > 0:
-            # Only ligand present
-            l_pooled = l.mean(dim=0, keepdim=True).unsqueeze(0)  # [1, 1, D]
-            # Use zero protein representation
-            p_zero = torch.zeros(1, embed_dim, device=self.device).unsqueeze(0)  # [1, 1, D]
-            pl_combined = torch.cat([p_zero.squeeze(1), l_pooled.squeeze(1)], dim=-1)  # [1, 2*D]
-            final_repr = self.pl_fusion(pl_combined)  # [1, D]
-            
+            # Only protein - need to add batch dimension properly  
+            complex_repr = p.mean(dim=0, keepdim=True).unsqueeze(0)  # [1, 1, D]
+            virtual_after_interaction = torch.empty(0, embed_dim, device=self.device)
+        elif v.size(0) > 0:
+            # Only water - need to add batch dimension properly
+            complex_repr = v.mean(dim=0, keepdim=True).unsqueeze(0)  # [1, 1, D]
+            virtual_after_interaction = v  # Use virtual node embeddings given as input
         else:
-            # Neither protein nor ligand present
-            final_repr = torch.zeros(1, embed_dim, device=self.device)  # [1, D]
+            # Neither protein nor water - create properly shaped zero tensor
+            complex_repr = torch.zeros(1, 1, embed_dim, device=self.device)  # [1, 1, D]
+            virtual_after_interaction = torch.empty(0, embed_dim, device=self.device)
+            protein_after_interaction = torch.empty(0, embed_dim, device=self.device)
 
-        return final_repr.squeeze(0), ligand_after_interaction,  protein_after_interaction # [D], [N_lig, D], [N_protein, D]
+        # Step 2: Complex-Ligand interaction
+        if l.size(0) > 0:
+            l_batch = l.unsqueeze(0)  # [1, N_l, D]
+            
+            # Ligand attends to protein-water complex
+            final_out, _ = self.complex_ligand_attn(l_batch, complex_repr, complex_repr)  # [1, N_l, D]
+            final_repr = final_out.mean(dim=1)  # [1, D]
+        else:
+            final_repr = complex_repr.squeeze(1)  # Remove sequence dimension: [1, D]
+
+        return final_repr.squeeze(0), virtual_after_interaction, protein_after_interaction # [D]
 
     def _predict_coordinates_from_shared_embeddings(self, batch, interaction_results):
-        """Predict ligand and sidechain coordinates using final embeddings"""
-        ligand_embeddings = interaction_results['ligand_embeddings_f'] 
+        """Use enhanced virtual embeddings from shared pipeline for coordinate prediction"""
+        # virtual_embeddings = interaction_results['enhanced_virtual_embeddings']  # [N_virtual, embed_dim]
+        # virtual_coords = interaction_results['virtual_coords']                   # [N_virtual, 3]
+        # virtual_batch_idx = interaction_results['virtual_batch_idx']             # [N_virtual]
+        
+        ligand_embeddings = interaction_results['ligand_embeddings'] 
         ligand_batch_idx = interaction_results['ligand_batch_idx']
 
         ligand_batch = batch['ligand'].to(self.device)
         
-        protein_embeddings = interaction_results['protein_embeddings_f']  # [N_protein, embed_dim]
+        protein_embeddings = interaction_results['enhanced_protein_embeddings']  # [N_protein, embed_dim]
         protein_batch_idx = interaction_results['protein_batch_idx']  # [N_protein]
         X_sidechain_padded = interaction_results['X_sidechain_padded']  # [N_prot, N_sidechain_max, 3]
         X_sidechain_mask = interaction_results['X_sidechain_mask']      # [N_prot, N_sidechain_max]
@@ -410,7 +458,7 @@ class AFFModel_TwoBody(pl.LightningModule):
         else:
             # Affinity-only loss
             if self.loss_type == "multitask":
-                affinity_result = self.aff_loss_fn(
+                affinity_result = self.loss_fn(
                     results['affinity'], results['target_affinity'], results['logits']
                 )
                 if isinstance(affinity_result, tuple):
@@ -424,7 +472,7 @@ class AFFModel_TwoBody(pl.LightningModule):
                         'ranking_loss': pearson_pen # pearson penalty is used as ranking loss
                     }
             else:
-                affinity_result = self.aff_loss_fn(results['affinity'], results['target_affinity'])
+                affinity_result = self.loss_fn(results['affinity'], results['target_affinity'])
                 if isinstance(affinity_result, tuple):
                     total_loss, reg_loss, ranking_loss, _, _ = affinity_result
                     loss_dict = {'total_loss': total_loss,
@@ -508,8 +556,8 @@ class AFFModel_TwoBody(pl.LightningModule):
         # Store predictions for epoch-level metrics
         pred_affinities = results['affinity'].detach().cpu().flatten()
         target_affinities = results['target_affinity'].detach().cpu().flatten()
-        self.test_predictions.extend(pred_affinities.clone().tolist())
-        self.test_targets.extend(target_affinities.clone().tolist())
+        self.test_predictions.extend(pred_affinities.tolist())
+        self.test_targets.extend(target_affinities.tolist())
         # self.test_predictions.extend(results['affinity'].detach().cpu().tolist())
         # self.test_targets.extend(results['target_affinity'].detach().cpu().tolist())
         
@@ -590,10 +638,8 @@ class AFFModel_TwoBody(pl.LightningModule):
         # Use different learning rates for different components
         param_groups = [
             {'params': self.protein_encoder.parameters(), 'lr': self.hparams.lr * 1},
+            {'params': self.virtual_encoder.parameters(), 'lr': self.hparams.lr * 1},
             {'params': self.ligand_encoder.parameters(), 'lr': self.hparams.lr * 1},
-            {'params': self.protein_ligand_attn.parameters(), 'lr': self.hparams.lr * 1},
-            {'params': self.ligand_protein_attn.parameters(), 'lr': self.hparams.lr * 1},
-            {'params': self.pl_fusion.parameters(), 'lr': self.hparams.lr * 1},
             {'params': self.regressor.parameters(), 'lr': self.hparams.lr},
         ]
         
@@ -606,7 +652,7 @@ class AFFModel_TwoBody(pl.LightningModule):
         
         # Add other parameters
         other_params = []
-        excluded_modules = ['protein_encoder','ligand_encoder', 'protein_ligand_attn', 'ligand_protein_attn', 'pl_fusion', 'regressor']
+        excluded_modules = ['protein_encoder', 'virtual_encoder', 'ligand_encoder', 'regressor']
         if self.predict_str:
             excluded_modules.append('structure_predictor')
             
@@ -638,17 +684,55 @@ class AFFModel_TwoBody(pl.LightningModule):
     # ORIGINAL PROCESSING METHODS
     # ========================================
 
-    def _process_protein_nodes(self, protein_batch):
+    def _process_protein_and_virtual_nodes(self, protein_virtual_batch, protein_mask, virtual_mask):
         """Process protein and virtual nodes with GVP encoder"""
-        node_s = protein_batch.node_s
-        node_v = protein_batch.node_v
-        edge_index = protein_batch.edge_index
-        edge_s = protein_batch.edge_s
-        edge_v = protein_batch.edge_v
+        node_s = protein_virtual_batch.node_s
+        node_v = protein_virtual_batch.node_v
+        edge_index = protein_virtual_batch.edge_index
+        edge_s = protein_virtual_batch.edge_s
+        edge_v = protein_virtual_batch.edge_v
+        # process including water nodes
+        s, v = self.protein_virtual_encoder(node_s, node_v, edge_index, edge_s, edge_v)
+        # then just filter for protein and virtual nodes
+        prot_s, prot_v = s[protein_mask], v[protein_mask]
+        virtual_s, virtual_v  = s[virtual_mask], v[virtual_mask]
 
-        prot_s, prot_v = self.protein_encoder(node_s, node_v, edge_index, edge_s, edge_v)
+        return prot_s, prot_v, virtual_s, virtual_v
 
-        return prot_s, prot_v
+    def _get_virtual_subgraph(protein_virtual_batch, virtual_mask):
+        # this sub function was written with Gemini + bit of re-naming by repo owner
+        # Get the indices of the virtual nodes in the large graph
+        virtual_node_indices = virtual_mask.nonzero(as_tuple=True)[0]
+        
+        # Filter the edges to keep only those where both source and destination are virtual nodes
+        v2v_edge_mask = virtual_mask[protein_virtual_batch.edge_index[0]] & virtual_mask[protein_virtual_batch.edge_index[1]]
+        v2v_edge_index = protein_virtual_batch.edge_index[:, v2v_edge_mask]
+
+        # Remap the edge indices to be in the range [0, num_virtual_nodes - 1]
+        node_map = torch.full((protein_virtual_batch.num_nodes,), -1, dtype=torch.long, device=virtual_node_indices.device)
+        node_map[virtual_node_indices] = torch.arange(virtual_node_indices.size(0), device=virtual_node_indices.device)
+        v2v_edge_index_remapped = node_map[v2v_edge_index]
+        
+        return v2v_edge_index_remapped
+    
+    def _pool_virtual_nodes(self, s, coords, edge_index, batch_idx):
+       
+        if s.shape[0] == 0:
+            return s, coords, batch_idx
+
+        cluster = graclus(edge_index, num_nodes=s.size(0))
+        unique_clusters, cluster_map = torch.unique(cluster, return_inverse=True)
+        
+        # Aggregate features and coordinates by averaging over each cluster
+        s_pooled = scatter_mean(s, cluster_map, dim=0)
+        coords_pooled = scatter_mean(coords, cluster_map, dim=0)
+        batch_idx_pooled = scatter_mean(batch_idx.float(), cluster_map, dim=0).long()
+        
+        num_before = s.shape[0]
+        num_after = s_pooled.shape[0]
+        self.print(f"Virtual node pooling: {num_before} -> {num_after} nodes.")
+
+        return s_pooled, coords_pooled, batch_idx_pooled
 
     def _process_ligand_nodes(self, ligand_batch):
         """Process ligand nodes with GVP encoder"""
@@ -660,6 +744,7 @@ class AFFModel_TwoBody(pl.LightningModule):
         lig_s, _ = self.ligand_encoder(lx_s, lx_v_dummy, le_idx, le_s, le_v_dummy)
         return lig_s
 
+    
     def _log_predictions(self, batch, y_pred, y, stage):
         # Flatten tensors to ensure they're always 1D
         pred_list = y_pred.flatten().tolist()

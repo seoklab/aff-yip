@@ -8,106 +8,121 @@ import torch.nn.functional as F
 
 
 class CoordinateLoss(nn.Module):
-    """Loss function for coordinate prediction with masking support"""
+    """
+    Simple coordinate-based loss functions for structure prediction.
+    Calculates RMSD and distance-based losses between predicted and target coordinates.
+    """
     
-    def __init__(self, loss_type="mse", reduction="mean"):
+    def __init__(self, 
+                 loss_type="mse",  # "mse", "rmsd", "huber"
+                 ligand_weight=1.0,
+                 sidechain_weight=0.5,
+                 delta=1.0):  # For Huber loss
         super().__init__()
         self.loss_type = loss_type
-        self.reduction = reduction
+        self.ligand_weight = ligand_weight
+        self.sidechain_weight = sidechain_weight
+        self.delta = delta
+        
+    def forward(self, 
+                pred_ligand_coords,       # [B, max_lig_atoms, 3]
+                target_ligand_coords,     # [B, max_lig_atoms, 3]
+                lig_coord_mask,              # [B, max_lig_atoms]
+                pred_sidechain_coords=None,    # [B, N_residues, max_sidechain_atoms, 3]
+                target_sidechain_coords=None,  # [B, N_residues, max_sidechain_atoms, 3]
+                sidechain_mask=None,          # [B, N_residues, max_sidechain_atoms]
+                prot_coord_mask=None):        
+        
+        total_loss = 0.0
+        loss_dict = {}
+        
+        # ===== LIGAND COORDINATE LOSS =====
+        if pred_ligand_coords is not None and target_ligand_coords is not None:
+            ligand_loss = self._compute_coordinate_loss(
+                pred_ligand_coords, 
+                target_ligand_coords, 
+                lig_coord_mask,
+            )
+            total_loss += self.ligand_weight * ligand_loss
+            loss_dict['ligand_coord_loss'] = ligand_loss.item()
+            
+            # Calculate RMSD for logging
+            ligand_rmsd = self._compute_rmsd(
+                pred_ligand_coords, 
+                target_ligand_coords, 
+                lig_coord_mask
+            )
+            loss_dict['ligand_rmsd'] = ligand_rmsd.item()
+        
+        # ===== SIDECHAIN COORDINATE LOSS =====
+        if (pred_sidechain_coords is not None and 
+            target_sidechain_coords is not None and 
+            sidechain_mask is not None):
+            combined_mask = prot_coord_mask.unsqueeze(-1) & sidechain_mask  # [B, N_residues, max_sidechain_atoms]
+ 
+            sidechain_loss = self._compute_coordinate_loss(
+                pred_sidechain_coords.view(-1, 3), 
+                target_sidechain_coords.view(-1, 3), 
+                combined_mask.view(-1) 
+            )
+
+            total_loss += self.sidechain_weight * sidechain_loss
+            loss_dict['sidechain_coord_loss'] = sidechain_loss.item()
+            
+            # Calculate RMSD for logging
+            sidechain_rmsd = self._compute_rmsd(
+                pred_sidechain_coords.view(-1, 3), 
+                target_sidechain_coords.view(-1, 3), 
+                combined_mask.view(-1)
+            )
+            loss_dict['sidechain_rmsd'] = sidechain_rmsd.item()
+        
+        loss_dict['total_coord_loss'] = total_loss.item() if torch.is_tensor(total_loss) else total_loss
+        
+        return total_loss, loss_dict
     
-    def compute_rmsd_for_logging(self, pred_coords, target_coords, mask):
+    def _compute_coordinate_loss(self, pred_coords, target_coords, mask):
         """
-        Compute RMSD for logging purposes (separate from loss)
+        Compute coordinate loss with masking.
         
         Args:
-            pred_coords: [B, max_atoms, 3] predicted coordinates
-            target_coords: [B, max_atoms, 3] ground truth coordinates
-            mask: [B, max_atoms] boolean mask for valid atoms
-        
-        Returns:
-            rmsd: Scalar RMSD value for logging
+            pred_coords: [N, 3] predicted coordinates
+            target_coords: [N, 3] target coordinates  
+            mask: [N] boolean mask for valid coordinates
         """
-        batch_size = pred_coords.size(0)
-        molecule_rmsds = []
+        if mask.sum() == 0:
+            return torch.tensor(0.0, device=pred_coords.device, requires_grad=True)
         
-        for b in range(batch_size):
-            # Get valid atoms for this molecule
-            valid_atoms = mask[b]  # [max_atoms]
-            num_valid = valid_atoms.sum().item()
-            
-            if num_valid == 0:
-                continue
-            
-            # Calculate RMSD for this molecule
-            pred_mol = pred_coords[b][valid_atoms]    # [num_valid, 3]
-            target_mol = target_coords[b][valid_atoms]  # [num_valid, 3]
-            
-            # RMSD = sqrt(mean(||pred_atom - target_atom||^2))
-            atom_squared_distances = ((pred_mol - target_mol) ** 2).sum(dim=-1)  # [num_valid]
-            molecule_rmsd = torch.sqrt(atom_squared_distances.mean())
-            molecule_rmsds.append(molecule_rmsd)
-        
-        if molecule_rmsds:
-            return torch.stack(molecule_rmsds).mean()
-        else:
-            return torch.tensor(0.0, device=pred_coords.device)
-    
-    def forward(self, pred_coords, target_coords, mask):
-        """
-        Args:
-            pred_coords: [B, max_atoms, 3] predicted coordinates
-            target_coords: [B, max_atoms, 3] ground truth coordinates  
-            mask: [B, max_atoms] boolean mask for valid atoms
-        
-        Returns:
-            loss: scalar coordinate loss
-        """
-        # Expand mask to 3D coordinates
-        mask_3d = mask.unsqueeze(-1).expand_as(pred_coords)  # [B, max_atoms, 3]
+        # Apply mask
+        pred_masked = pred_coords[mask]
+        target_masked = target_coords[mask]
         
         if self.loss_type == "mse":
-            # Masked MSE loss
-            diff_squared = (pred_coords - target_coords) ** 2
-            masked_diff = diff_squared * mask_3d.float()
-            
-            if self.reduction == "mean":
-                loss = masked_diff.sum() / (mask_3d.float().sum() + 1e-8)
-            elif self.reduction == "sum":
-                loss = masked_diff.sum()
-            else:
-                loss = masked_diff
-                
-        elif self.loss_type == "mae":
-            # Masked MAE loss
-            diff_abs = torch.abs(pred_coords - target_coords)
-            masked_diff = diff_abs * mask_3d.float()
-            
-            if self.reduction == "mean":
-                loss = masked_diff.sum() / (mask_3d.float().sum() + 1e-8)
-            elif self.reduction == "sum":
-                loss = masked_diff.sum()
-            else:
-                loss = masked_diff
-                
+            loss = F.mse_loss(pred_masked, target_masked)
+        elif self.loss_type == "rmsd":
+            loss = self._compute_rmsd_raw(pred_masked, target_masked)
         elif self.loss_type == "huber":
-            # Masked Huber loss (smooth L1)
-            diff = pred_coords - target_coords
-            huber_loss = F.smooth_l1_loss(pred_coords, target_coords, reduction='none')
-            masked_diff = huber_loss * mask_3d.float()
-            
-            if self.reduction == "mean":
-                loss = masked_diff.sum() / (mask_3d.float().sum() + 1e-8)
-            elif self.reduction == "sum":
-                loss = masked_diff.sum()
-            else:
-                loss = masked_diff
+            loss = F.huber_loss(pred_masked, target_masked, delta=self.delta)
         else:
             raise ValueError(f"Unknown loss type: {self.loss_type}")
         
-        # Compute RMSD for logging
-        rmsd = self.compute_rmsd_for_logging(pred_coords, target_coords, mask)
+        return loss
+    
+    def _compute_rmsd(self, pred_coords, target_coords, mask):
+        """Compute RMSD between predicted and target coordinates."""
+        if mask.sum() == 0:
+            return torch.tensor(0.0, device=pred_coords.device)
         
-        return rmsd, loss
+        pred_masked = pred_coords[mask]
+        target_masked = target_coords[mask]
+        
+        return self._compute_rmsd_raw(pred_masked, target_masked)
+    
+    def _compute_rmsd_raw(self, pred_coords, target_coords):
+        """Raw RMSD computation without masking."""
+        squared_diff = (pred_coords - target_coords).pow(2).sum(dim=-1)
+        rmsd = squared_diff.mean().sqrt()
+        return rmsd
 
 class MultiTaskAffinityCoordinateLoss(nn.Module):
     """Combined loss for affinity and coordinate prediction"""
@@ -121,6 +136,7 @@ class MultiTaskAffinityCoordinateLoss(nn.Module):
         
         self.affinity_loss_fn = affinity_loss_fn
         self.coord_loss_weight = coord_loss_weight
+        self.coord_loss_fn = CoordinateLoss(loss_type=coord_loss_type, ligand_weight=0.75, sidechain_weight=0.25) 
         if lig_internal_dist_w > 0:
             self.internal_prediction = True
             self.coord_loss = DistanceBasedCoordinateLoss(coord_weight=coord_loss_weight,
@@ -131,7 +147,9 @@ class MultiTaskAffinityCoordinateLoss(nn.Module):
             self.coord_loss = CoordinateLoss(loss_type=coord_loss_type)
         
     def forward(self, pred_affinity, target_affinity, pred_logits=None, 
-                pred_coords=None, target_coords=None, coord_mask=None):
+                pred_lig_coords=None, target_lig_coords=None, lig_coord_mask=None,
+                pred_sidechain_coords=None, target_sidechain_coords=None, sidechain_mask=None, prot_coord_mask=None):
+        
         """
         Args:
             pred_affinity: Predicted affinity values
@@ -173,22 +191,27 @@ class MultiTaskAffinityCoordinateLoss(nn.Module):
                             'ranking_loss': ranking_loss}
         
         total_loss = total_affinity_loss
-        
-        # Coordinate loss (if provided)
-        if pred_coords is not None and target_coords is not None and coord_mask is not None:
-            if self.internal_prediction:
-                rmsd, coord_loss, str_loss = self.coord_loss(pred_coords, target_coords, coord_mask)
-                loss_dict['coord_loss'] = coord_loss # now this is the MSE loss
-            else:
-                rmsd, str_loss = self.coord_loss(pred_coords, target_coords, coord_mask)
-            weighted_str_loss = self.coord_loss_weight * str_loss
+       
+        if pred_lig_coords is not None and target_lig_coords is not None and lig_coord_mask is not None:
+            coord_loss, coord_loss_dict = self.coord_loss_fn(
+                pred_ligand_coords=pred_lig_coords,
+                target_ligand_coords=target_lig_coords,
+                lig_coord_mask=lig_coord_mask,
+                pred_sidechain_coords=pred_sidechain_coords,
+                target_sidechain_coords=target_sidechain_coords,
+                sidechain_mask=sidechain_mask,
+                prot_coord_mask=prot_coord_mask
+            )
             
-            total_loss += weighted_str_loss
-            loss_dict['ligand_rmsd'] = rmsd
-            loss_dict['str_loss'] = weighted_str_loss
+            weighted_coord_loss = self.coord_loss_weight * coord_loss
+            total_loss += weighted_coord_loss
+            
+            # Add coordinate losses to loss dict
+            loss_dict.update(coord_loss_dict)
+            loss_dict['weighted_coord_loss'] = weighted_coord_loss.item() if torch.is_tensor(weighted_coord_loss) else weighted_coord_loss
         
-        loss_dict['total_loss'] = total_loss
-        
+        loss_dict['total_loss'] = total_loss.item() if torch.is_tensor(total_loss) else total_loss
+
         return total_loss, loss_dict
 
 
@@ -255,17 +278,11 @@ class DistanceBasedCoordinateLoss(nn.Module):
         
         return total_distance_loss / max(valid_batches, 1)
     
-# Drop-in replacement for your current loss
-class HuberReplacementLoss(nn.Module):
-    """
-    Direct replacement for WeightedCategoryLoss_v2 but using Huber loss
-    Same interface, much simpler implementation
-    """
+class AffHuberLoss(nn.Module):
     def __init__(self,
                  delta=1.0,                    # Huber threshold
                  extreme_weight=2.0,           # Boost for extremes
                  ranking_weight=0.1,           # Preserve correlations
-                 # Ignore all the complex threshold parameters
                  **kwargs):                    # Absorb unused parameters
         super().__init__()
         self.delta = delta
