@@ -7,9 +7,8 @@ from pytorch_lightning.loggers import WandbLogger
 import wandb
 import torch 
 
-from src.model.model_exp_water import AFFModel_ThreeBody as AFFModel_ExplicitWater
 from src.model.model_twobody import AFFModel_TwoBody
-from src.model.model_virtual import AFFModel_ThreeBody as AFFModel_VirtualWater
+from src.model.model_threebody_virtual import AFFModel_ThreeBody as AFFModel_VirtualWater
 from src.data.datamodule import RLADataModule
 
 from scripts.train.train_utils import CoordinateSaverCallback, DelayedEarlyStopping
@@ -60,26 +59,12 @@ def main(args):
             interaction_mode=args.interaction_mode,  # "hierarchical" or "parallel"
             loss_type=args.loss_type,  # "multitask" or "single"
             predict_str=args.do_structure_prediction,  # whether to predict structure
-        )
-    elif args.model_type == 'explicit-water':
-        model = AFFModel_ExplicitWater(
-            protein_node_dims=(args.protein_scalar_dim, args.protein_vector_dim),
-            protein_edge_dims=(32, args.protein_edge_vector_dim),
-            ligand_node_dims=(args.ligand_scalar_dim, 0),
-            ligand_edge_dims=(args.ligand_edge_scalar_dim, 0),
-            protein_hidden_dims=(args.hidden_scalar_dim, args.hidden_vector_dim),
-            water_hidden_dims=(args.hidden_scalar_dim, 3),
-            ligand_hidden_dims=(args.hidden_scalar_dim, 0),
-            num_gvp_layers=args.num_gvp_layers,
-            dropout=args.dropout,
-            lr=args.learning_rate,
-            interaction_mode=args.interaction_mode, #"parallel",
-            loss_type=args.loss_type 
+            str_model_type=args.str_model_type,  # "mlp" or "egnn"
         )
     elif args.model_type == 'twobody':
         model = AFFModel_TwoBody(
             protein_node_dims=(args.protein_scalar_dim, args.protein_vector_dim),
-            protein_edge_dims=(32, args.protein_edge_vector_dim),
+            protein_edge_dims=(args.protein_edge_scalar_dim, args.protein_edge_vector_dim),
             ligand_node_dims=(args.ligand_scalar_dim, 0),
             ligand_edge_dims=(args.ligand_edge_scalar_dim, 0),
             protein_hidden_dims=(args.hidden_scalar_dim, args.hidden_vector_dim),
@@ -87,6 +72,9 @@ def main(args):
             num_gvp_layers=args.num_gvp_layers,
             dropout=args.dropout,
             lr=args.learning_rate,
+            interaction_mode="cross_attention", # no hierarchical for twobody model
+            loss_type=args.loss_type,  # "multitask" or "single"
+            predict_str=args.do_structure_prediction,  # whether to predict structure
         )
     # === Callbacks
     checkpoint_callback = ModelCheckpoint(
@@ -108,11 +96,12 @@ def main(args):
     
     lig_coord_saver = CoordinateSaverCallback(
         save_every_n_epochs=args.save_coords_every_n_epochs,  # Save every N epochs
-        original_mol2_dir="/home/j2ho/DB/biolip/BioLiP_updated_set/ligand_mol2",
-        output_mol2_dir=f"./predicted_mol2/{args.run_name}",
+        original_mol2_dir="/home/j2ho/DB/biolip/BioLiP_updated_set/ligand_mol2",                 
+        original_pdb_dir="/home/j2ho/DB/biolip/BioLiP_updated_set/receptor", # Corrected path
+        output_dir=f"./predicted_str/{args.run_name}",
         save_coords_pt=False,  # Also save as .pt files
         separate_epoch_dirs=False)
-    
+
     
     # === Trainer
     trainer = pl.Trainer(
@@ -196,6 +185,7 @@ if __name__ == '__main__':
     model.add_argument('--loss_type', type=str, choices=['multitask', 'single'], default='single') 
     model.add_argument('--do_structure_prediction', action='store_true',
                         help='Whether to predict ligand structure in addition to affinity')
+    model.add_argument('--str_model_type', type=str, choices=['mlp', 'egnn'], default='mlp',)
     # === Optimizationtrain_
     optim = parser.add_argument_group('Optimization')
     optim.add_argument('--learning_rate', type=float, default=1e-4)
