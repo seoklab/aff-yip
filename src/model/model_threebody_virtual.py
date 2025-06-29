@@ -8,7 +8,7 @@ from torch_geometric.nn.pool import graclus
 from torch_scatter import scatter_mean
 from src.model.gvp_encoder import GVPGraphEncoderHybrid as GVPGraphEncoder
 from src.model.my_modules import DirectCoordinatePredictor as SimpleStructModule
-from src.model.structure_modules.egnn_str import EGNNCoordinatePredictor as EGNNStructModule
+from src.model.structure_modules.egnn_debug import EGNNCoordinatePredictor_SidechainMap as EGNNStructModule
 from .loss_utils import MultiTaskAffinityCoordinateLoss
 from .loss_utils import AffHuberLoss as AffinityLoss
 
@@ -18,7 +18,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
                  virtual_node_dims=(26, 3), # 1 water occupancy + padding & 3 vectors (now zero vectors)
                  protein_edge_dims=(41, 1), # 41 edge scalar & 1 edge vector (simply X1-X2 norm vector)
                  ligand_node_dims=(46, 0), # 46 ligand atom types & 0 vectors
-                 ligand_edge_dims=(9, 0), # 9 edge scalar & 0 edge vector 
+                 ligand_edge_dims=(9, 0), # 9 edge scalar & 0 edge vector
                  protein_hidden_dims=(196, 16),
                  virtual_hidden_dims=(196, 3),
                  ligand_hidden_dims=(196, 3),
@@ -27,12 +27,12 @@ class AFFModel_ThreeBody(pl.LightningModule):
                  lr=1e-3,
                  interaction_mode="hierarchical",
                  predict_str=False,
-                 str_model_type="egnn", #"mlp",  # "mlp" or "egnn"   
+                 str_model_type="egnn", #"mlp",  # "mlp" or "egnn"
                  loss_type="single",  # single: no classification head
-                 loss_params=None):  
+                 loss_params=None):
         super().__init__()
         self.save_hyperparameters()
-        
+
         # === Original model components ===
         self.interaction_mode = interaction_mode
         self.predict_str = predict_str
@@ -59,8 +59,8 @@ class AFFModel_ThreeBody(pl.LightningModule):
             hidden_dims=protein_hidden_dims,
             num_layers=num_gvp_layers,
             drop_rate=dropout
-        ) 
-        
+        )
+
         self.ligand_encoder = GVPGraphEncoder(
             node_dims=ligand_node_dims,
             edge_dims=ligand_edge_dims,
@@ -68,10 +68,10 @@ class AFFModel_ThreeBody(pl.LightningModule):
             num_layers=num_gvp_layers,
             drop_rate=dropout
         )
-        
+
         # Three-Body Interaction Modules
         embed_dim = protein_hidden_dims[0]
-        
+
         if interaction_mode == "hierarchical":
             self.protein_vn_attn = nn.MultiheadAttention(
                 embed_dim=embed_dim, num_heads=4, batch_first=True
@@ -91,10 +91,10 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 nn.Dropout(dropout),
                 nn.Linear(embed_dim, embed_dim)
             )
-        
+
         # Structure Prediction Setups
         if predict_str:
-            self.coord_loss_weight = 0.3
+            self.str_loss_weight = 0.4
             if self.str_model_type == "egnn":
                 self.structure_predictor = EGNNStructModule(
                     lig_embed_dim=ligand_hidden_dims[0],
@@ -108,12 +108,21 @@ class AFFModel_ThreeBody(pl.LightningModule):
                     lig_embed_dim=ligand_hidden_dims[0],
                     prot_embed_dim=embed_dim,
                     hidden_dim=128
-                ) 
-        else: 
-            self.coord_loss_weight = 0.0
+                )
+            # feature from structure module -> MLP
+            self.str_feature_mlp = nn.Sequential(
+                nn.Linear(embed_dim * 3, embed_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(embed_dim, embed_dim)
+            )
+        else:
+            self.str_loss_weight = 0.0
 
         # === Enhanced components ===
         # Main regression head
+        if predict_str:
+            embed_dim *= 2
         self.regressor = nn.Sequential(
             nn.Linear(embed_dim, embed_dim),
             nn.ReLU(),
@@ -122,7 +131,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
             nn.ReLU(),
             nn.Linear(embed_dim // 2, 1)
         )
-        
+
         # Additional heads for multitask: classification and regression
         if loss_type == "multitask":
             self.thresholds = [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0]
@@ -133,10 +142,10 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 nn.Dropout(dropout),
                 nn.Linear(embed_dim, class_num)
             )
-        
+
         # Initialize loss function
         self._init_loss_function(loss_type, loss_params)
-        
+
         # Track  metrics
         self.train_predictions = []
         self.train_targets = []
@@ -149,11 +158,11 @@ class AFFModel_ThreeBody(pl.LightningModule):
         """Initialize the appropriate loss function"""
         if loss_params is None:
             loss_params = {}
-        
+
         if loss_type == "multitask":
             from src.model.loss_utils import WeightedCategoryLoss_v2
             self.aff_loss_fn = WeightedCategoryLoss_v2(
-                    thresholds = self.thresholds, 
+                    thresholds = self.thresholds,
                     regression_weight=0.75,
                     category_penalty_weight=0.15,
                     extreme_penalty_weight=0,
@@ -166,23 +175,38 @@ class AFFModel_ThreeBody(pl.LightningModule):
             self.aff_loss_fn = AffinityLoss(
                 delta=0.5,
                 extreme_weight=1.6,
-                ranking_weight=0.5) 
-        
-        if self.predict_str:
-            self.combined_loss_fn = MultiTaskAffinityCoordinateLoss(
-                affinity_loss_fn=self.aff_loss_fn, 
-                coord_loss_weight=self.coord_loss_weight,
-                coord_loss_type="mse",
-                lig_internal_dist_w=0 #0.1
-            )
+                ranking_weight=0.5)
 
+        if self.predict_str:
+            from src.model.structure_modules.egnn_debug import SidechainMapCoordinateLoss as StrLoss
+            self.str_loss_fn = StrLoss(
+                loss_type="mse",
+                ligand_weight=1,
+                sidechain_weight=0.2,
+                use_distance_loss=True,
+                ligand_distance_weight=0.3,
+                sidechain_distance_weight=0,
+                distance_loss_type="mse",
+                distance_cutoff=5.0
+            )
+            # self.combined_loss_fn = MultiTaskAffinityCoordinateLoss(
+            #     affinity_loss_fn=self.aff_loss_fn,
+            #     coord_loss_weight=self.coord_loss_weight,
+            #     coord_loss_type="mse",
+            #     lig_internal_dist_w=0 #0.1
+            # )
         self.loss_type = loss_type
-    
 
     def forward(self, batch):
         interaction_results = self.get_embeddings(batch)
         complex_embedding = interaction_results['complex_embedding']  # [B, embed_dim]
-
+        results = dict()
+        h = None  # Initialize h for structure prediction
+        if self.predict_str:
+            coord_results, h = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
+            # if coord_results['sidechain_predictions'] is not None:
+            results.update(coord_results)
+            complex_embedding = torch.cat([complex_embedding, h], dim=-1)  # [B, embed_dim * 2]
         if self.loss_type == "multitask":
             # Regression prediction
             pred_affinity = self.regressor(complex_embedding).squeeze()
@@ -190,27 +214,28 @@ class AFFModel_ThreeBody(pl.LightningModule):
             pred_logits = self.classification_head(complex_embedding)
             # Get true affinities
             affinities = batch['affinity'].to(self.device)
-            results = {
+            results_aff = {
                 'affinity': pred_affinity,
                 'logits': pred_logits,
                 'target_affinity': affinities
             }
+            results.update(results_aff)
         else:
             # Single-task regression
             pred_affinity = self.regressor(complex_embedding).squeeze()
             affinities = batch['affinity'].to(self.device)
-            results = {
+            results_aff = {
                 'affinity': pred_affinity,
                 'target_affinity': affinities
             }
+            results.update(results_aff)
+        # if self.predict_str:
+        #     coord_results = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
+        #     # if coord_results['sidechain_predictions'] is not None:
+        #     results.update(coord_results)
 
-        if self.predict_str:
-            coord_results = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
-            if coord_results['predicted_ligand_coords'] is not None:
-                results.update(coord_results)
-        
         return results
-    
+
     def get_embeddings(self, batch):
         """Get embeddings before final prediction (for multi-task learning)"""
         protein_virtual_batch = batch['protein_virtual'].to(self.device)
@@ -218,34 +243,34 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
         X_sidechain_padded = protein_virtual_batch.X_sidechain_padded.to(self.device)  # [B, N_prot, N_sidechain_max, 3]
         X_sidechain_mask = protein_virtual_batch.X_sidechain_mask.to(self.device)  # [B, N_prot, N_sidechain_max]
-  
+
         # Split protein and water nodes
         protein_mask = protein_virtual_batch.node_type == 0
         virtual_mask = protein_virtual_batch.node_type == 1
         # water_mask = protein_batch.node_type == 2
-        
+
         # Step1: Process prot-virtual /lig component
         prot_s, prot_v, virtual_s, virtual_v = self._process_protein_and_virtual_nodes(protein_virtual_batch, protein_mask, virtual_mask)
         lig_s = self._process_ligand_nodes(ligand_batch)
 
-        # Step2: Pool virtual nodes 
+        # Step2: Pool virtual nodes
         virtual_coords_initial = protein_virtual_batch.x[virtual_mask]
         virtual_batch_idx_initial = protein_virtual_batch.batch[virtual_mask]
         v2v_edge_index = self._get_virtual_subgraph(protein_virtual_batch, virtual_mask)
 
         virtual_s, virtual_coords, virtual_batch_idx = self._pool_virtual_nodes(
-            s=virtual_s, 
-            coords=virtual_coords_initial, 
+            s=virtual_s,
+            coords=virtual_coords_initial,
             edge_index=v2v_edge_index,
             batch_idx=virtual_batch_idx_initial)
-        # Step3: Get interaction embeddings 
+        # Step3: Get interaction embeddings
         complex_embeddings, ligand_embeddings_after_interaction, virtual_embeddings_after_interaction, protein_embeddings_after_interaction = self._get_hierarchical_interaction_embeddings(
-            prot_s, virtual_s, lig_s, 
-            protein_batch_idx=protein_virtual_batch.batch[protein_mask], 
+            prot_s, virtual_s, lig_s,
+            protein_batch_idx=protein_virtual_batch.batch[protein_mask],
             virtual_batch_idx=virtual_batch_idx,
             ligand_batch_idx=ligand_batch.batch
         )
-        
+
         return {
             'complex_embedding': complex_embeddings,           # [B, embed_dim] for affinity
             'virtual_embeddings_f': virtual_embeddings_after_interaction,  # [N_virtual, embed_dim] for coords
@@ -258,12 +283,12 @@ class AFFModel_ThreeBody(pl.LightningModule):
             'backbone_coords': protein_virtual_batch.x[protein_mask],
             'X_sidechain_padded': X_sidechain_padded,  # [B, N_prot, N_sidechain_max, 3]
             'X_sidechain_mask': X_sidechain_mask,      # [B, N_prot, N_sidechain_max]
-        }      
-    
-    def _get_hierarchical_interaction_embeddings(self, prot_s, virtual_s, lig_s, 
+        }
+
+    def _get_hierarchical_interaction_embeddings(self, prot_s, virtual_s, lig_s,
                                                       protein_batch_idx, virtual_batch_idx, ligand_batch_idx):
         """Get_embeddings-Step3: Hierarchical interaction but track virtual embeddings for coordinate prediction"""
-        
+
         # Get batch information
         prot_batch_sizes = torch.bincount(protein_batch_idx).tolist() if protein_batch_idx.numel() > 0 else []
         virtual_batch_sizes = torch.bincount(virtual_batch_idx).tolist() if virtual_batch_idx.numel() > 0 else []
@@ -273,7 +298,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         prot_s_list = torch.split(prot_s, prot_batch_sizes) if prot_s.size(0) > 0 else []
         virtual_s_list = torch.split(virtual_s, virtual_batch_sizes) if virtual_s.size(0) > 0 else []
         lig_s_list = torch.split(lig_s, lig_batch_sizes)
-        
+
         complex_embeddings = []
         ligand_embeddings_after_interaction = []
         virtual_embeddings_after_interaction = []
@@ -290,16 +315,16 @@ class AFFModel_ThreeBody(pl.LightningModule):
             ligand_embeddings_after_interaction.append(ligand_after_interaction) # [N_ligand, embed_dim]
             virtual_embeddings_after_interaction.append(virtual_after_interaction) # [N_virtual_pooled, embed_dim]
             protein_embeddings_after_interaction.append(protein_after_interaction) # [N_protein, embed_dim]
-        
+
         # Stack results
         complex_embeddings = torch.stack(complex_embeddings)  # [B, embed_dim]
-        
+
         # Concatenate virtual embeddings (maintaining batch order)
         if virtual_embeddings_after_interaction and all(v.size(0) > 0 for v in virtual_embeddings_after_interaction):
             virtual_embeddings_after_interaction = torch.cat(virtual_embeddings_after_interaction, dim=0)
         else:
             virtual_embeddings_after_interaction = virtual_s  # Fallback to input
-        
+
         # Concatenate protein embeddings (maintaining batch order)
         if protein_embeddings_after_interaction and all(p.size(0) > 0 for p in protein_embeddings_after_interaction):
             protein_embeddings_after_interaction = torch.cat(protein_embeddings_after_interaction, dim=0)
@@ -317,32 +342,32 @@ class AFFModel_ThreeBody(pl.LightningModule):
     def _hierarchical_interaction_with_virtual(self, p, v, l):
         """Hierarchical: (P+V) -> complex -> interact with L"""
         embed_dim = self.hparams.protein_hidden_dims[0]
-        
+
         # Step 1: Protein-VirtualNode interaction (if both exist)
         if p.size(0) > 0 and v.size(0) > 0:
             # Cross-attention between protein and virtual nodes
             p_batch = p.unsqueeze(0)  # [1, N_p, D]
             v_batch = v.unsqueeze(0)  # [1, N_v, D]
-            
+
             # virtual node attends to protein, protein attends to virtual node
             v_enhanced, _ = self.protein_vn_attn(v_batch, p_batch, p_batch)  # [1, N_v, D]
             p_enhanced, _ = self.protein_vn_attn(p_batch, v_batch, v_batch)  # [1, N_p, D]
-            
+
             # Pool and fuse for complex representation
             p_pooled = p_enhanced.mean(dim=1)  # [1, D]
             v_pooled = v_enhanced.mean(dim=1)  # [1, D]
-            
+
             pv_combined = torch.cat([p_pooled, v_pooled], dim=-1)  # [1, 2*D]
             complex_repr = self.pv_fusion(pv_combined).unsqueeze(1)  # [1, 1, D]
-            
+
             virtual_after_interaction = v_enhanced.squeeze(0)  # [N_v, D]
             protein_after_interaction = p_enhanced.squeeze(0)  # [N_p, D]
 
         elif p.size(0) > 0:
             # print ("Warning: Only protein nodes present, no virtual nodes.")
-            # Only protein - need to add batch dimension properly  
+            # Only protein - need to add batch dimension properly
             complex_repr = p.mean(dim=0, keepdim=True).unsqueeze(0)  # [1, 1, D]
-            protein_after_interaction = p 
+            protein_after_interaction = p
             virtual_after_interaction = torch.empty(0, embed_dim, device=self.device)
         elif v.size(0) > 0:
             # Only water - need to add batch dimension properly
@@ -372,93 +397,99 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
     def _predict_coordinates_from_shared_embeddings(self, batch, interaction_results):
         """Predict ligand and sidechain coordinates using final embeddings"""
-        ligand_embeddings = interaction_results['ligand_embeddings_f'] 
+        ligand_batch=batch['ligand']
+        ligand_embeddings = interaction_results['ligand_embeddings_f']
         ligand_batch_idx = interaction_results['ligand_batch_idx']
-
-        ligand_batch = batch['ligand'].to(self.device)
-        protein_virtual_batch = batch['protein_virtual'].to(self.device) 
         protein_embeddings = interaction_results['protein_embeddings_f']  # [N_protein, embed_dim]
         protein_batch_idx = interaction_results['protein_batch_idx']  # [N_protein]
-        X_sidechain_padded = interaction_results['X_sidechain_padded']  # [N_prot, N_sidechain_max, 3]
-        X_sidechain_mask = interaction_results['X_sidechain_mask']      # [N_prot, N_sidechain_max]
-
+        protein_virtual_batch = batch['protein_virtual']
         sidechain_map = batch['sidechain_map']
-        # Create target mask for ligand atoms
-        batch_size = ligand_batch_idx.max().item() + 1
-        max_ligand_atoms = torch.bincount(ligand_batch_idx).max().item()
-        max_protein_residues = torch.bincount(protein_batch_idx).max().item()
 
-        target_mask = torch.zeros(batch_size, max_ligand_atoms, dtype=torch.bool, device=self.device)
-        for b in range(batch_size):
-            num_atoms = (ligand_batch_idx == b).sum().item()
-            target_mask[b, :num_atoms] = True
-        
-        protein_mask = torch.zeros(batch_size, max_protein_residues, dtype=torch.bool, device=self.device)
-        for b in range(batch_size):
-            num_residues = (protein_batch_idx == b).sum().item()
-            protein_mask[b, :num_residues] = True
-
-        max_sidechain_atoms = X_sidechain_mask.size(1)
-    
-        X_sidechain_mask_batched = torch.zeros(
-            batch_size, max_protein_residues, max_sidechain_atoms, 
-            dtype=torch.bool, device=self.device
-        )
-        X_sidechain_coords_batched = torch.zeros(
-        batch_size, max_protein_residues, max_sidechain_atoms, 3,
-        device=self.device
-        )   
-
-        mask_idx = 0
-        for b in range(batch_size):
-            num_residues_in_batch = (protein_batch_idx == b).sum().item()
-            if num_residues_in_batch > 0:
-                batch_masks = X_sidechain_mask[mask_idx:mask_idx + num_residues_in_batch]
-                X_sidechain_mask_batched[b, :num_residues_in_batch] = batch_masks
-
-                batch_coords = X_sidechain_padded[mask_idx:mask_idx + num_residues_in_batch]
-                X_sidechain_coords_batched[b, :num_residues_in_batch] = batch_coords
-
-                mask_idx += num_residues_in_batch
-
-        # Use the structure module with shared embeddings
-        pred_ligand_coords, pred_sidechain_coords = self.structure_predictor(
+        result, h_dict = self.structure_predictor(
             ligand_embeddings=ligand_embeddings,
             ligand_batch_idx=ligand_batch_idx,
-            protein_virtual_batch=protein_virtual_batch,
             protein_embeddings=protein_embeddings,
             protein_batch_idx=protein_batch_idx,
-            X_sidechain_mask=X_sidechain_mask_batched,
-            target_mask=target_mask,
-            protein_mask=protein_mask,
+            protein_virtual_batch=protein_virtual_batch,
+            ligand_batch=ligand_batch,
             sidechain_map=sidechain_map
         )
-
-        # Get ground truth coordinates for ligand atoms
-        target_lig_coords = torch.zeros_like(pred_ligand_coords)
-        ligand_coords = ligand_batch.pos
-        
-        coord_idx = 0
-        for b in range(batch_size):
-            num_atoms = (ligand_batch_idx == b).sum().item()
-            target_lig_coords[b, :num_atoms] = ligand_coords[coord_idx:coord_idx + num_atoms]
-            coord_idx += num_atoms
-        
-        return {
-            'predicted_ligand_coords': pred_ligand_coords,
-            'target_ligand_coords': target_lig_coords,
-            'predicted_sidechain_coords': pred_sidechain_coords,
-            'target_sidechain_coords': X_sidechain_coords_batched,
-            'lig_coord_target_mask': target_mask,
-            'sidechain_mask': X_sidechain_mask_batched,  # [B, N_prot, N_sidechain_max]
-            'prot_coord_target_mask': protein_mask
-        }
+        # h [N_differentforitem, emb_dim]
+        # mean pool h ?
+        h = []
+                # for key in split_features:
+        #     # print shapes
+        #     for idx in split_features[key]:
+        #         print(f"DEBUG EGNN: {key} features shape: {split_features[key][idx].shape}")
+        for batch_id in torch.unique(ligand_batch_idx):
+            lig_h = h_dict['ligand_features'].get(batch_id.item(), None)
+            protein_h = h_dict['protein_features'].get(batch_id.item(), None)
+            sidechain_h = h_dict['sidechain_features'].get(batch_id.item(), None)
+            # protein_h = h_dict['protein_features'][batch_id]
+            # sidechain_h = h_dict['sidechain_features'][batch_id]
+            lig_h = lig_h.mean(dim=0, keepdim=True)
+            protein_h = protein_h.mean(dim=0, keepdim=True)
+            sidechain_h = sidechain_h.mean(dim=0, keepdim=True)
+            h_idx = torch.cat([lig_h, protein_h, sidechain_h], dim=-1)  # [1, emb_dim * 3]
+            h_idx = self.str_feature_mlp(h_idx)  # [1, emb_dim]
+            h.append(h_idx)
+        # stack h
+        h = torch.cat(h, dim=0)  # [N_differentforitem, emb_dim * 3]
+        return result, h
 
     # ========================================
     # LOSS COMPUTATION AND TRAINING STEPS
     # ========================================
 
     def _compute_loss(self, results):
+        """Separate affinity and coordinate losses - much cleaner!"""
+        loss_dict = {}
+
+        # ===== AFFINITY LOSS (unchanged) =====
+        if self.loss_type == "multitask":
+            affinity_result = self.aff_loss_fn(
+                results['affinity'],
+                results['target_affinity'],
+                results['logits']
+            )
+            if isinstance(affinity_result, tuple):
+                total_affinity_loss, reg_loss, cat_penalty, extreme_penalty, pearson_pen = affinity_result
+                loss_dict.update({
+                    'affinity_loss': total_affinity_loss,
+                    'reg_loss': reg_loss,
+                    'category_loss': cat_penalty,
+                    'extreme_penalty': extreme_penalty,
+                    'ranking_loss': pearson_pen
+                })
+        else:
+            affinity_result = self.aff_loss_fn(results['affinity'], results['target_affinity'])
+            if isinstance(affinity_result, tuple):
+                total_affinity_loss, reg_loss, ranking_loss, _, _ = affinity_result
+                loss_dict.update({
+                    'affinity_loss': total_affinity_loss,
+                    'reg_loss': reg_loss,
+                    'ranking_loss': ranking_loss
+                })
+
+        total_loss = total_affinity_loss
+
+        # ===== COORDINATE LOSS (new sidechain_map approach) =====
+        if self.predict_str and 'sidechain_predictions' in results:
+            # Use the new SidechainMapCoordinateLoss
+            str_loss, str_loss_dict = self.str_loss_fn(results)
+
+            weighted_str_loss = self.str_loss_weight * str_loss
+            total_loss += weighted_str_loss
+
+            # Add coordinate losses to loss dict
+            loss_dict.update(str_loss_dict)
+            loss_dict['weighted_str_loss'] = weighted_str_loss.item()
+
+        loss_dict['total_loss'] = total_loss.item()
+
+        return total_loss, loss_dict
+
+    def _compute_loss_backup(self, results):
         """Unified loss computation for both affinity and coordinate prediction"""
         if self.predict_str and 'predicted_ligand_coords' in results:
             # Use combined loss function
@@ -466,10 +497,10 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 'pred_affinity': results['affinity'],
                 'target_affinity': results['target_affinity']
             }
-            
+
             if self.loss_type == "multitask":
                 loss_kwargs['pred_logits'] = results['logits']
-            
+
             loss_kwargs.update({
                 'pred_lig_coords': results['predicted_ligand_coords'],
                 'target_lig_coords': results['target_ligand_coords'],
@@ -480,7 +511,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 'sidechain_mask': results['sidechain_mask']
 
             })
-            
+
             total_loss, loss_dict = self.combined_loss_fn(**loss_kwargs)
             return total_loss, loss_dict
         else:
@@ -505,49 +536,49 @@ class AFFModel_ThreeBody(pl.LightningModule):
                     total_loss, reg_loss, ranking_loss, _, _ = affinity_result
                     loss_dict = {'total_loss': total_loss,
                                  'affinity_loss': total_loss,
-                                 'reg_loss': reg_loss, 
+                                 'reg_loss': reg_loss,
                                  'ranking_loss': ranking_loss}
-            
+
             return total_loss, loss_dict
 
     def training_step(self, batch, batch_idx):
         results = self(batch)
         total_loss, loss_dict = self._compute_loss(results)
-        
+
         # Log loss components
         actual_batch_size = len(batch['ligand'])
         for loss_name, loss_value in loss_dict.items():
             if loss_name != 'total_loss':
                 self.log(f"train_{loss_name}", loss_value, batch_size=actual_batch_size)
-        
+
         # Store predictions for epoch-level metrics
         pred_affinities = results['affinity'].detach().cpu().flatten()
         target_affinities = results['target_affinity'].detach().cpu().flatten()
         self.train_predictions.extend(pred_affinities.tolist())
         self.train_targets.extend(target_affinities.tolist())
-        
+
         # self.train_predictions.extend(results['affinity'].detach().cpu().tolist())
         # self.train_targets.extend(results['target_affinity'].detach().cpu().tolist())
-        
+
         # Log predictions for debugging
         self._log_predictions(batch, results['affinity'], results['target_affinity'], "Train")
-        
+
         # Log main loss
         self.log("train_loss", total_loss, prog_bar=True, batch_size=actual_batch_size)
-        
+
         return total_loss
 
     def validation_step(self, batch, batch_idx):
         results = self(batch)
         total_loss, loss_dict = self._compute_loss(results)
-        
+
         # Log loss components
         actual_batch_size = len(batch['ligand'])
         for loss_name, loss_value in loss_dict.items():
             if loss_name != 'total_loss':
-                self.log(f"val_{loss_name}", loss_value, batch_size=actual_batch_size, 
+                self.log(f"val_{loss_name}", loss_value, batch_size=actual_batch_size,
                         on_epoch=True, sync_dist=True)
-        
+
         # Store predictions for epoch-level metrics
         pred_affinities = results['affinity'].detach().cpu().flatten()
         target_affinities = results['target_affinity'].detach().cpu().flatten()
@@ -555,32 +586,32 @@ class AFFModel_ThreeBody(pl.LightningModule):
         self.val_targets.extend(target_affinities.tolist())
         # self.val_predictions.extend(results['affinity'].detach().cpu().tolist())
         # self.val_targets.extend(results['target_affinity'].detach().cpu().tolist())
-        
+
         # Compute additional metrics
         pred_affinity = results['affinity']
         affinities = results['target_affinity']
         mae = torch.mean(torch.abs(pred_affinity - affinities))
-        
+
         # Log metrics
         self.log("val_loss", total_loss, prog_bar=True, on_epoch=True, sync_dist=True, batch_size=actual_batch_size)
         self.log("val_mae", mae, prog_bar=True, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-        
+
         # Log predictions for debugging
         self._log_predictions(batch, results['affinity'], results['target_affinity'], "Valid")
-        
+
         return total_loss
 
     def test_step(self, batch, batch_idx):
         results = self(batch)
         total_loss, loss_dict = self._compute_loss(results)
-        
+
         # Log loss components
         actual_batch_size = len(batch['ligand'])
         for loss_name, loss_value in loss_dict.items():
             if loss_name != 'total_loss':
-                self.log(f"test_{loss_name}", loss_value, batch_size=actual_batch_size, 
+                self.log(f"test_{loss_name}", loss_value, batch_size=actual_batch_size,
                         on_epoch=True, sync_dist=True)
-        
+
         # Store predictions for epoch-level metrics
         pred_affinities = results['affinity'].detach().cpu().flatten()
         target_affinities = results['target_affinity'].detach().cpu().flatten()
@@ -588,31 +619,31 @@ class AFFModel_ThreeBody(pl.LightningModule):
         self.test_targets.extend(target_affinities.clone().tolist())
         # self.test_predictions.extend(results['affinity'].detach().cpu().tolist())
         # self.test_targets.extend(results['target_affinity'].detach().cpu().tolist())
-        
+
         # Compute additional metrics
         pred_affinity = results['affinity']
         affinities = results['target_affinity']
         mae = torch.mean(torch.abs(pred_affinity - affinities))
-        
+
         # Log metrics
         self.log("test_mae", mae, prog_bar=True, batch_size=actual_batch_size, on_epoch=True, sync_dist=True)
-        
+
         # Log predictions for debugging
         self._log_predictions(batch, results['affinity'], results['target_affinity'], "Test")
-        
+
         return total_loss
-    
+
     # ========================================
     # EPOCH-LEVEL METRICS
     # ========================================
-    
+
     def on_train_epoch_end(self):
         """Compute epoch-level training metrics"""
         if len(self.train_predictions) > 0:
             device = self.device if torch.cuda.is_available() else torch.device("cpu")
             predictions = torch.tensor(self.train_predictions, device=device)
             targets = torch.tensor(self.train_targets, device=device)
-            
+
             # Compute correlation
             if len(predictions) > 1:
                 pearson = torch.corrcoef(torch.stack([predictions, targets]))[0, 1]
@@ -620,7 +651,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
             # Compute RMSE
             rmse = torch.sqrt(torch.mean((predictions - targets) ** 2))
             self.log("train_rmse", rmse, prog_bar=True, on_epoch=True, sync_dist=True)
-            
+
             # Clear stored predictions
             self.train_predictions = []
             self.train_targets = []
@@ -631,7 +662,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
             device = self.device if torch.cuda.is_available() else torch.device("cpu")
             predictions = torch.tensor(self.val_predictions, device=device)
             targets = torch.tensor(self.val_targets, device=device)
-            
+
             # Compute correlation
             if len(predictions) > 1:
                 pearson = torch.corrcoef(torch.stack([predictions, targets]))[0, 1]
@@ -652,7 +683,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
             # Compute correlation
             if len(predictions) > 1:
                 pearson = torch.corrcoef(torch.stack([predictions, targets]))[0, 1]
-                self.log("test_pearson", pearson, on_epoch=True, sync_dist=True) 
+                self.log("test_pearson", pearson, on_epoch=True, sync_dist=True)
 
             # Compute RMSE
             rmse = torch.sqrt(torch.mean((predictions - targets) ** 2))
@@ -669,34 +700,34 @@ class AFFModel_ThreeBody(pl.LightningModule):
             {'params': self.ligand_encoder.parameters(), 'lr': self.hparams.lr * 1},
             {'params': self.regressor.parameters(), 'lr': self.hparams.lr},
         ]
-        
+
         # Add structure predictor parameters if enabled
         if self.predict_str:
             param_groups.append({
-                'params': self.structure_predictor.parameters(), 
+                'params': self.structure_predictor.parameters(),
                 'lr': self.hparams.lr
             })
-        
+
         # Add other parameters
         other_params = []
         excluded_modules = ['protein_encoder','virtual_encoder','protein_virtual_encoder','ligand_encoder', 'regressor']
         if self.predict_str:
             excluded_modules.append('structure_predictor')
-            
+
         for name, param in self.named_parameters():
             if not any(module in name for module in excluded_modules):
                 other_params.append(param)
-        
+
         if other_params:
             param_groups.append({'params': other_params, 'lr': self.hparams.lr})
-        
+
         optimizer = torch.optim.AdamW(param_groups, weight_decay=0.01)
-        
+
         # Learning rate scheduler
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode='min', factor=0.5, patience=10, min_lr=1e-6, verbose=True
         )
-        
+
         return {
             'optimizer': optimizer,
             'lr_scheduler': {
@@ -706,7 +737,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 'frequency': 1
             }
         }
-    
+
     # ========================================
     # ORIGINAL PROCESSING METHODS
     # ========================================
@@ -725,7 +756,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         virtual_s = s[virtual_mask]
         virtual_v = v[virtual_mask]
         return prot_s, prot_v, virtual_s, virtual_v
-    
+
     def _process_protein_and_virtual_nodes(self, protein_virtual_batch, protein_mask, virtual_mask):
         """Process protein and virtual nodes with GVP encoder"""
         node_s = protein_virtual_batch.node_s
@@ -733,7 +764,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         edge_index = protein_virtual_batch.edge_index
         edge_s = protein_virtual_batch.edge_s
         edge_v = protein_virtual_batch.edge_v
-        
+
         protein_indices_orig = protein_mask.nonzero(as_tuple=True)[0]
         virtual_indices_orig = virtual_mask.nonzero(as_tuple=True)[0]
 
@@ -767,12 +798,12 @@ class AFFModel_ThreeBody(pl.LightningModule):
         # Get initial embeddings for protein and virtual nodes using their respective encoders
         p_s_encoded, p_v_encoded = self.protein_encoder(p_s, p_v, p2p_edge_index_remapped, p2p_edge_s, p2p_edge_v)
         v_s_encoded, v_v_encoded = self.virtual_encoder(v_s, v_v, v2v_edge_index_remapped, v2v_edge_s, v2v_edge_v)
-        
+
         # Combine protein and virtual node embeddings
         combined_node_s = torch.cat([p_s_encoded, v_s_encoded], dim=0)
         combined_node_v = torch.cat([p_v_encoded, v_v_encoded], dim=0)
-        
-        # Remap the global edge_index to the new combined node order 
+
+        # Remap the global edge_index to the new combined node order
         num_protein_nodes_in_batch = protein_indices_orig.size(0)
         node_map = torch.full((protein_virtual_batch.num_nodes,), -1, dtype=torch.long, device=edge_index.device)
         node_map[protein_indices_orig] = torch.arange(num_protein_nodes_in_batch, device=edge_index.device)
@@ -780,18 +811,18 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
         node_is_pv_mask = protein_mask | virtual_mask
         pv_edge_mask = node_is_pv_mask[edge_index[0]] & node_is_pv_mask[edge_index[1]]
-        
+
         full_pv_edge_index = edge_index[:, pv_edge_mask]
         full_pv_edge_s = edge_s[pv_edge_mask]
         full_pv_edge_v = edge_v[pv_edge_mask]
 
         remapped_edge_index = node_map[full_pv_edge_index]
-        
+
         # Process the combined graph with the correctly remapped edge index and attributes
         s_final, v_final = self.protein_virtual_encoder(
             combined_node_s, combined_node_v, remapped_edge_index, full_pv_edge_s, full_pv_edge_v
         )
-        
+
         # Split the final embeddings back into protein and virtual parts.
         prot_s, virtual_s = torch.split(s_final, [num_protein_nodes_in_batch, s_final.size(0) - num_protein_nodes_in_batch], dim=0)
         prot_v, virtual_v = torch.split(v_final, [num_protein_nodes_in_batch, v_final.size(0) - num_protein_nodes_in_batch], dim=0)
@@ -802,7 +833,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         # this sub function was written with Gemini + bit of re-naming by repo owner
         # Get the indices of the virtual nodes in the large graph
         virtual_node_indices = virtual_mask.nonzero(as_tuple=True)[0]
-        
+
         # Filter the edges to keep only those where both source and destination are virtual nodes
         v2v_edge_mask = virtual_mask[protein_virtual_batch.edge_index[0]] & virtual_mask[protein_virtual_batch.edge_index[1]]
         v2v_edge_index = protein_virtual_batch.edge_index[:, v2v_edge_mask]
@@ -811,11 +842,11 @@ class AFFModel_ThreeBody(pl.LightningModule):
         node_map = torch.full((protein_virtual_batch.num_nodes,), -1, dtype=torch.long, device=virtual_node_indices.device)
         node_map[virtual_node_indices] = torch.arange(virtual_node_indices.size(0), device=virtual_node_indices.device)
         v2v_edge_index_remapped = node_map[v2v_edge_index]
-        
+
         return v2v_edge_index_remapped
-    
+
     def _pool_virtual_nodes(self, s, coords, edge_index, batch_idx):
-       
+
         if s.shape[0] == 0:
             return s, coords, batch_idx
         # print("Inside SLURM job:")
@@ -828,12 +859,12 @@ class AFFModel_ThreeBody(pl.LightningModule):
         cluster = graclus(edge_index, num_nodes=s.size(0))
 
         unique_clusters, cluster_map = torch.unique(cluster, return_inverse=True)
-        
+
         # Aggregate features and coordinates by averaging over each cluster
         s_pooled = scatter_mean(s, cluster_map, dim=0)
         coords_pooled = scatter_mean(coords, cluster_map, dim=0)
         batch_idx_pooled = scatter_mean(batch_idx.float(), cluster_map, dim=0).long()
-        
+
         # num_before = s.shape[0]
         # num_after = s_pooled.shape[0]
         # self.print(f"Virtual node pooling: {num_before} -> {num_after} nodes.")
@@ -850,12 +881,12 @@ class AFFModel_ThreeBody(pl.LightningModule):
         lig_s, _ = self.ligand_encoder(lx_s, lx_v_dummy, le_idx, le_s, le_v_dummy)
         return lig_s
 
-    
+
     def _log_predictions(self, batch, y_pred, y, stage):
         # Flatten tensors to ensure they're always 1D
         pred_list = y_pred.flatten().tolist()
         true_list = y.flatten().tolist()
-        
+
         for i, (pred, true) in enumerate(zip(pred_list, true_list)):
             name = batch.get('name', [f"{stage}_sample_{i}"])[i] if 'name' in batch else f"{stage}_sample_{i}"
             self.print(f"[{stage}] {name}: True Aff = {true:.3f}, Predicted = {pred:.3f}")
