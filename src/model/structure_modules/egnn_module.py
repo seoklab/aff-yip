@@ -2,10 +2,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch_geometric.utils import to_dense_batch
+from torch_scatter import scatter_mean, scatter_add
 from .egnn_layers import EGNNConv, CoordEGNNConv, CoordEGNNConv_v2, CoordEGNNConv_v3
 import numpy as np
 
-class EGNNCoordinatePredictor(nn.Module):
+class EGNNCoordinatePredictor_SidechainMap(nn.Module):
     """
     EGNN-based coordinate predictor using sidechain_map directly.
     No padding, no masking - predict exactly what exists!
@@ -80,20 +82,15 @@ class EGNNCoordinatePredictor(nn.Module):
                                        backbone_coords, sidechain_maps):
         """
         Create sidechain atom nodes directly from sidechain_map.
-        No masks needed - batch boundaries handled by protein_batch_idx!
+        Returns organized data structures for easy loss calculation.
         """
         device = protein_embeddings.device
 
-        # Prepare return structures
-        sidechain_data = {
-            'features': [],
-            'coords': [],
-            'batch_idx': [],
-            'residue_idx': [],
-            'atom_names': [],
-            'predictions_by_residue': {},  # Will store predictions organized by residue
-            'targets_by_residue': {}       # Will store targets organized by residue
-        }
+        # Handle sidechain_maps - could be tuple/list or single dict
+        if isinstance(sidechain_maps, (tuple, list)):
+            sidechain_maps_list = sidechain_maps
+        else:
+            sidechain_maps_list = [sidechain_maps]
 
         def get_atom_type_idx(atom_name):
             if atom_name.startswith('C'):
@@ -109,117 +106,175 @@ class EGNNCoordinatePredictor(nn.Module):
             else:
                 return 5  # Unknown
 
-        def parse_residue_key(key):
-            # '(GLN.A.68)' -> 'GLN', 'A', '68'
-            clean_key = key.strip('()')
-            parts = clean_key.split('.')
-            if len(parts) >= 3:
-                return parts[0], parts[1], parts[2]
-            return None, None, None
+        # Prepare data structures - we'll build these in order
+        atom_features = []
+        atom_coords = []
+        atom_batch_idx = []
+        atom_to_residue_mapping = []  # (batch_id, residue_key, atom_name) for each atom
 
-        # Handle sidechain_maps - could be tuple/list or single dict
-        if isinstance(sidechain_maps, (tuple, list)):
-            sidechain_maps_list = sidechain_maps
-        else:
-            sidechain_maps_list = [sidechain_maps]
+        # Prepare target and prediction structures
+        sidechain_targets = {}
+        sidechain_predictions = {}
+
+        # print(f"DEBUG EGNN: Processing {len(sidechain_maps_list)} batches")
 
         protein_res_idx = 0
+
         for batch_id in range(len(sidechain_maps_list)):
             # Find protein residues in this batch
             batch_protein_mask = protein_batch_idx == batch_id
             num_residues_in_batch = batch_protein_mask.sum().item()
 
+            # print(f"DEBUG EGNN: Batch {batch_id}: {num_residues_in_batch} residues in protein_batch_idx")
+
             if num_residues_in_batch == 0:
+                protein_res_idx += num_residues_in_batch
                 continue
 
             batch_sidechain_map = sidechain_maps_list[batch_id]
             residue_keys = list(batch_sidechain_map.keys())
 
+            # print(f"DEBUG EGNN: Batch {batch_id}: {len(residue_keys)} residues in sidechain_map")
+
             # Get backbone coordinates for this batch
             batch_backbone_coords = backbone_coords[batch_protein_mask]
 
-            # Initialize residue data structures for this batch
-            batch_predictions = {}
-            batch_targets = {}
+            # Initialize batch structures
+            sidechain_targets[batch_id] = {}
+            sidechain_predictions[batch_id] = {}
 
-            for res_idx in range(min(num_residues_in_batch, len(residue_keys))):
-                global_res_idx = protein_res_idx + res_idx
+            # Process residues (only up to the minimum of available data)
+            max_residues_to_process = min(num_residues_in_batch, len(residue_keys))
+            # print(f"DEBUG EGNN: Will process {max_residues_to_process} residues")
+
+            for res_idx in range(max_residues_to_process):
                 residue_key = residue_keys[res_idx]
 
-                # Initialize this residue's data
-                residue_predictions = {}
-                residue_targets = {}
+                # print(f"DEBUG EGNN: Processing residue {res_idx}/{max_residues_to_process}: {residue_key}")
 
-                if residue_key in batch_sidechain_map:
-                    sidechain_atoms = batch_sidechain_map[residue_key]
+                if residue_key not in batch_sidechain_map:
+                    continue
 
-                    # Create nodes for each sidechain atom
-                    for atom_name, atom_coords in sidechain_atoms.items():
-                        # Create atom features
-                        atom_type_idx = get_atom_type_idx(atom_name)
-                        atom_type_emb = self.sidechain_atom_embedding(
-                            torch.tensor(atom_type_idx, device=device)
-                        )
+                sidechain_atoms = batch_sidechain_map[residue_key]
+                # print(f"DEBUG EGNN: Residue {residue_key} has {len(sidechain_atoms)} atoms: {list(sidechain_atoms.keys())}")
 
-                        # Use residue embedding as base feature
-                        residue_emb = protein_embeddings[global_res_idx]
+                # Initialize prediction and target structures for this residue
+                sidechain_predictions[batch_id][residue_key] = {}
+                sidechain_targets[batch_id][residue_key] = {}
 
-                        # Combine features
-                        atom_features = torch.cat([residue_emb[:32], atom_type_emb], dim=0)
-                        sidechain_data['features'].append(atom_features)
+                # Create nodes for each sidechain atom
+                for atom_name, atom_coords_np in sidechain_atoms.items():
+                    # Store target coordinates
+                    target_coord = torch.tensor(atom_coords_np, dtype=torch.float32, device=device)
+                    sidechain_targets[batch_id][residue_key][atom_name] = target_coord
 
-                        # Random initial position near CA (don't use ground truth)
-                        ca_coord = batch_backbone_coords[res_idx]
-                        random_offset = torch.randn(3, device=device) * 0.5
-                        random_offset = random_offset / (random_offset.norm() + 1e-8) * (1.0 + torch.rand(1, device=device) * 2.0)
-                        initial_coord = ca_coord + random_offset
-                        sidechain_data['coords'].append(initial_coord)
+                    # Create atom features
+                    atom_type_idx = get_atom_type_idx(atom_name)
+                    atom_type_emb = self.sidechain_atom_embedding(
+                        torch.tensor(atom_type_idx, device=device)
+                    )
 
-                        sidechain_data['batch_idx'].append(batch_id)
-                        sidechain_data['residue_idx'].append(global_res_idx)
-                        sidechain_data['atom_names'].append(atom_name)
+                    # Use residue embedding as base feature
+                    residue_emb = protein_embeddings[protein_res_idx + res_idx]
 
-                        # Store target coordinates
-                        target_coord = torch.tensor(atom_coords, dtype=torch.float32, device=device)
-                        residue_targets[atom_name] = target_coord
+                    # Combine features (ensure total is 64 for sidechain_proj)
+                    atom_features_combined = torch.cat([residue_emb[:32], atom_type_emb], dim=0)
+                    atom_features.append(atom_features_combined)
 
-                # Store residue data
-                if residue_targets:
-                    batch_predictions[residue_key] = residue_predictions  # Will be filled after prediction
-                    batch_targets[residue_key] = residue_targets
+                    # Random initial position near CA (don't use ground truth)
+                    ca_coord = batch_backbone_coords[res_idx]
+                    random_offset = torch.randn(3, device=device) * 1.0
+                    random_offset = random_offset / (random_offset.norm() + 1e-8) * (1.0 + torch.rand(1, device=device) * 3.0)
+                    initial_coord = ca_coord + random_offset
+                    atom_coords.append(initial_coord)
 
-            # Store batch data
-            if batch_predictions:
-                sidechain_data['predictions_by_residue'][batch_id] = batch_predictions
-                sidechain_data['targets_by_residue'][batch_id] = batch_targets
+                    atom_batch_idx.append(batch_id)
+
+                    # Store the mapping for this atom
+                    atom_to_residue_mapping.append((batch_id, residue_key, atom_name))
 
             protein_res_idx += num_residues_in_batch
 
-        # Convert lists to tensors
-        if sidechain_data['features']:
-            sidechain_data['features'] = torch.stack(sidechain_data['features'])
-            sidechain_data['coords'] = torch.stack(sidechain_data['coords'])
-            sidechain_data['batch_idx'] = torch.tensor(sidechain_data['batch_idx'], device=device)
-            sidechain_data['residue_idx'] = torch.tensor(sidechain_data['residue_idx'], device=device)
-        else:
-            # Return empty tensors
-            sidechain_data['features'] = torch.empty(0, 64, device=device)
-            sidechain_data['coords'] = torch.empty(0, 3, device=device)
-            sidechain_data['batch_idx'] = torch.empty(0, dtype=torch.long, device=device)
-            sidechain_data['residue_idx'] = torch.empty(0, dtype=torch.long, device=device)
+        # print(f"DEBUG EGNN: Created {len(atom_features)} sidechain nodes")
 
-        return sidechain_data
+        # Convert to tensors
+        if atom_features:
+            atom_features_tensor = torch.stack(atom_features)
+            atom_coords_tensor = torch.stack(atom_coords)
+            atom_batch_idx_tensor = torch.tensor(atom_batch_idx, device=device)
+        else:
+            atom_features_tensor = torch.empty(0, 64, device=device)
+            atom_coords_tensor = torch.empty(0, 3, device=device)
+            atom_batch_idx_tensor = torch.empty(0, dtype=torch.long, device=device)
+
+        return {
+            'features': atom_features_tensor,
+            'coords': atom_coords_tensor,
+            'batch_idx': atom_batch_idx_tensor,
+            'atom_to_residue_mapping': atom_to_residue_mapping,
+            'sidechain_targets': sidechain_targets,
+            'sidechain_predictions': sidechain_predictions
+        }
+
+    def _create_node_mapping(self, ligand_batch_idx, protein_batch_idx, sidechain_batch_idx):
+        """
+        Create mapping to track which nodes belong to which component and batch.
+        Returns offset information for splitting combined features back.
+        """
+
+        # Create mapping structure
+        node_mapping = {
+            'ligand': {'start': 0, 'end': 0, 'batch_sizes': {}},
+            'protein': {'start': 0, 'end': 0, 'batch_sizes': {}},
+            'sidechain': {'start': 0, 'end': 0, 'batch_sizes': {}}
+        }
+
+        current_offset = 0
+
+        # Track ligand nodes
+        if ligand_batch_idx.size(0) > 0:
+            node_mapping['ligand']['start'] = current_offset
+            node_mapping['ligand']['end'] = current_offset + ligand_batch_idx.size(0)
+
+            # Count nodes per batch for ligand
+            for batch_id in torch.unique(ligand_batch_idx):
+                batch_mask = ligand_batch_idx == batch_id
+                node_mapping['ligand']['batch_sizes'][batch_id.item()] = batch_mask.sum().item()
+
+            current_offset += ligand_batch_idx.size(0)
+
+        # Track protein nodes
+        if protein_batch_idx.size(0) > 0:
+            node_mapping['protein']['start'] = current_offset
+            node_mapping['protein']['end'] = current_offset + protein_batch_idx.size(0)
+
+            # Count nodes per batch for protein
+            for batch_id in torch.unique(protein_batch_idx):
+                batch_mask = protein_batch_idx == batch_id
+                node_mapping['protein']['batch_sizes'][batch_id.item()] = batch_mask.sum().item()
+
+            current_offset += protein_batch_idx.size(0)
+
+        # Track sidechain nodes
+        if sidechain_batch_idx.size(0) > 0:
+            node_mapping['sidechain']['start'] = current_offset
+            node_mapping['sidechain']['end'] = current_offset + sidechain_batch_idx.size(0)
+
+            # Count nodes per batch for sidechain
+            for batch_id in torch.unique(sidechain_batch_idx):
+                batch_mask = sidechain_batch_idx == batch_id
+                node_mapping['sidechain']['batch_sizes'][batch_id.item()] = batch_mask.sum().item()
+
+        return node_mapping
 
     def _build_combined_graph(self, ligand_batch_idx, ligand_coords, ligand_edge_index,
                              protein_batch_idx, backbone_coords,
-                             sidechain_batch_idx, sidechain_coords, sidechain_residue_idx,
-                             sidechain_atom_names):
+                             sidechain_batch_idx, sidechain_coords):
         """Build combined graph with proper edge formation"""
         device = ligand_coords.device
         all_coords = []
         all_batch_idx = []
         node_types = []
-        node_elements = []
 
         current_offset = 0
 
@@ -228,7 +283,6 @@ class EGNNCoordinatePredictor(nn.Module):
             all_coords.append(ligand_coords)
             all_batch_idx.append(ligand_batch_idx)
             node_types.append(torch.zeros(ligand_coords.size(0), device=device, dtype=torch.long))
-            node_elements.append(torch.zeros(ligand_coords.size(0), device=device, dtype=torch.long))
             current_offset += ligand_coords.size(0)
 
         # Add backbone nodes (type 1)
@@ -236,7 +290,6 @@ class EGNNCoordinatePredictor(nn.Module):
             all_coords.append(backbone_coords)
             all_batch_idx.append(protein_batch_idx)
             node_types.append(torch.ones(backbone_coords.size(0), device=device, dtype=torch.long))
-            node_elements.append(torch.zeros(backbone_coords.size(0), device=device, dtype=torch.long))
             current_offset += backbone_coords.size(0)
 
         # Add sidechain nodes (type 2)
@@ -244,21 +297,6 @@ class EGNNCoordinatePredictor(nn.Module):
             all_coords.append(sidechain_coords)
             all_batch_idx.append(sidechain_batch_idx)
             node_types.append(2 * torch.ones(sidechain_coords.size(0), device=device, dtype=torch.long))
-
-            # Determine element types for sidechain atoms
-            sidechain_elements = []
-            for atom_name in sidechain_atom_names:
-                if atom_name.startswith('C'):
-                    sidechain_elements.append(0)
-                elif atom_name.startswith('N'):
-                    sidechain_elements.append(1)
-                elif atom_name.startswith('O'):
-                    sidechain_elements.append(2)
-                elif atom_name.startswith('S'):
-                    sidechain_elements.append(3)
-                else:
-                    sidechain_elements.append(4)
-            node_elements.append(torch.tensor(sidechain_elements, device=device, dtype=torch.long))
 
         if not all_coords:
             return (torch.empty(0, 3, device=device),
@@ -272,9 +310,8 @@ class EGNNCoordinatePredictor(nn.Module):
         combined_coords = torch.cat(all_coords, dim=0)
         combined_batch_idx = torch.cat(all_batch_idx, dim=0)
         combined_node_types = torch.cat(node_types, dim=0)
-        combined_node_elements = torch.cat(node_elements, dim=0)
 
-        # Build edges (simplified for now - you can use your existing logic)
+        # Build edges (simplified for now)
         edge_sources = []
         edge_targets = []
         edge_distances = []
@@ -284,7 +321,6 @@ class EGNNCoordinatePredictor(nn.Module):
         for batch_id in torch.unique(combined_batch_idx):
             batch_mask = combined_batch_idx == batch_id
             batch_coords = combined_coords[batch_mask]
-            batch_node_types = combined_node_types[batch_mask]
             batch_indices = torch.where(batch_mask)[0]
 
             if batch_coords.size(0) < 2:
@@ -321,7 +357,47 @@ class EGNNCoordinatePredictor(nn.Module):
 
         return (combined_coords, combined_batch_idx, edge_index, combined_node_types,
                 edge_distances, edge_type_encoding)
+    def _split_combined_features(self, combined_features, combined_batch_idx, node_mapping):
+        """
+        Split combined features back into components organized by batch.
+        """
+        result = {
+            'ligand_features': {},
+            'protein_features': {},
+            'sidechain_features': {}
+        }
 
+        # Split ligand features by batch
+        if node_mapping['ligand']['end'] > node_mapping['ligand']['start']:
+            ligand_features = combined_features[node_mapping['ligand']['start']:node_mapping['ligand']['end']]
+            ligand_batch_idx = combined_batch_idx[node_mapping['ligand']['start']:node_mapping['ligand']['end']]
+
+            feature_idx = 0
+            for batch_id, num_nodes in node_mapping['ligand']['batch_sizes'].items():
+                result['ligand_features'][batch_id] = ligand_features[feature_idx:feature_idx + num_nodes]
+                feature_idx += num_nodes
+
+        # Split protein features by batch
+        if node_mapping['protein']['end'] > node_mapping['protein']['start']:
+            protein_features = combined_features[node_mapping['protein']['start']:node_mapping['protein']['end']]
+            protein_batch_idx = combined_batch_idx[node_mapping['protein']['start']:node_mapping['protein']['end']]
+
+            feature_idx = 0
+            for batch_id, num_nodes in node_mapping['protein']['batch_sizes'].items():
+                result['protein_features'][batch_id] = protein_features[feature_idx:feature_idx + num_nodes]
+                feature_idx += num_nodes
+
+        # Split sidechain features by batch
+        if node_mapping['sidechain']['end'] > node_mapping['sidechain']['start']:
+            sidechain_features = combined_features[node_mapping['sidechain']['start']:node_mapping['sidechain']['end']]
+            sidechain_batch_idx = combined_batch_idx[node_mapping['sidechain']['start']:node_mapping['sidechain']['end']]
+
+            feature_idx = 0
+            for batch_id, num_nodes in node_mapping['sidechain']['batch_sizes'].items():
+                result['sidechain_features'][batch_id] = sidechain_features[feature_idx:feature_idx + num_nodes]
+                feature_idx += num_nodes
+
+        return result
     def forward(self,
                 ligand_embeddings,      # [N_ligand, embed_dim]
                 ligand_batch_idx,       # [N_ligand]
@@ -329,18 +405,24 @@ class EGNNCoordinatePredictor(nn.Module):
                 protein_batch_idx,      # [N_protein]
                 sidechain_map,          # List/tuple of dicts with actual sidechain data
                 protein_virtual_batch,  # Original batch object
-                **kwargs):              # Additional inputs (no masks needed!)
+                **kwargs):              # Additional inputs
 
         device = ligand_embeddings.device
 
         # Get coordinates from the ligand batch
         ligand_batch = kwargs.get('ligand_batch')
         if ligand_batch is not None:
+            # Use initial coordinates (pos) for EGNN input, NOT target_pos
             ligand_coords = ligand_batch.pos
             ligand_edge_index = ligand_batch.edge_index
+
+            # Store targets separately for later use
+            ligand_targets = ligand_batch.target_pos if hasattr(ligand_batch, 'target_pos') else ligand_batch.pos
         else:
+            # Fallback: random initialization
             ligand_coords = torch.randn(ligand_embeddings.size(0), 3, device=device) * 2.0
             ligand_edge_index = torch.empty(2, 0, dtype=torch.long, device=device)
+            ligand_targets = ligand_coords.clone()
 
         # Get backbone coordinates
         protein_mask_1d = protein_virtual_batch.node_type == 0
@@ -361,10 +443,12 @@ class EGNNCoordinatePredictor(nn.Module):
             self._build_combined_graph(
                 ligand_batch_idx, ligand_coords, ligand_edge_index,
                 protein_batch_idx, backbone_coords,
-                sidechain_data['batch_idx'], sidechain_data['coords'],
-                sidechain_data['residue_idx'], sidechain_data['atom_names']
+                sidechain_data['batch_idx'], sidechain_data['coords']
             )
-
+        # node mapping for splitting features later
+        node_mapping = self._create_node_mapping(
+            ligand_batch_idx, protein_batch_idx, sidechain_data['batch_idx']
+        )
         # Combine all node features
         all_features = []
         if h_ligand.size(0) > 0:
@@ -375,11 +459,11 @@ class EGNNCoordinatePredictor(nn.Module):
             all_features.append(h_sidechain)
 
         if not all_features:
-            # Return empty results in sidechain_map format
+            # Return empty results
             return {
                 'ligand_coords': {},
-                'sidechain_predictions': {},
-                'sidechain_targets': sidechain_data['targets_by_residue']
+                'sidechain_predictions': sidechain_data['sidechain_predictions'],
+                'sidechain_targets': sidechain_data['sidechain_targets']
             }
 
         combined_features = torch.cat(all_features, dim=0)
@@ -406,11 +490,13 @@ class EGNNCoordinatePredictor(nn.Module):
                 x = x_new + coord_update
                 h = h_new
 
+        split_features = self._split_combined_features(h, combined_batch_idx, node_mapping)
+
         # Extract predictions and organize by residue
         result = {
             'ligand_coords': {},
-            'sidechain_predictions': sidechain_data['predictions_by_residue'].copy(),
-            'sidechain_targets': sidechain_data['targets_by_residue']
+            'sidechain_predictions': sidechain_data['sidechain_predictions'].copy(),
+            'sidechain_targets': sidechain_data['sidechain_targets']
         }
 
         # Organize ligand predictions
@@ -418,9 +504,6 @@ class EGNNCoordinatePredictor(nn.Module):
         if ligand_coords.size(0) > 0:
             updated_ligand_coords = x[current_offset:current_offset + ligand_coords.size(0)]
             current_offset += ligand_coords.size(0)
-
-            # Get target coordinates from ligand batch
-            ligand_targets = ligand_batch.target_pos if hasattr(ligand_batch, 'target_pos') else ligand_batch.pos
 
             # Organize by batch
             coord_idx = 0
@@ -443,136 +526,38 @@ class EGNNCoordinatePredictor(nn.Module):
         if backbone_coords.size(0) > 0:
             current_offset += backbone_coords.size(0)
 
-        # Organize sidechain predictions
+        # Organize sidechain predictions using the atom mapping
         if sidechain_data['coords'].size(0) > 0:
             updated_sidechain_coords = x[current_offset:current_offset + sidechain_data['coords'].size(0)]
 
-            # Fill in predictions by residue
-            for i, (batch_id, residue_idx, atom_name) in enumerate(zip(
-                sidechain_data['batch_idx'], sidechain_data['residue_idx'], sidechain_data['atom_names']
-            )):
-                batch_id = batch_id.item()
+            # print(f"DEBUG EGNN: Filling {len(sidechain_data['atom_to_residue_mapping'])} sidechain predictions")
+            # print(f"DEBUG EGNN: Coordinate tensor size: {updated_sidechain_coords.size(0)}")
 
-                # Find the residue key for this prediction
-                if batch_id in result['sidechain_predictions']:
-                    for residue_key in result['sidechain_predictions'][batch_id]:
-                        if atom_name in result['sidechain_targets'][batch_id][residue_key]:
-                            result['sidechain_predictions'][batch_id][residue_key][atom_name] = updated_sidechain_coords[i]
-                            break
+            atoms_filled = 0
+            for i, (batch_id, residue_key, atom_name) in enumerate(sidechain_data['atom_to_residue_mapping']):
+                if i < updated_sidechain_coords.size(0):
+                    # Directly assign the prediction using the mapping
+                    result['sidechain_predictions'][batch_id][residue_key][atom_name] = updated_sidechain_coords[i]
+                    atoms_filled += 1
 
-        return result
+                    # if i < 5:  # Only print first few for debugging
+                    #     print(f"DEBUG EGNN: ✓ Filled {residue_key} {atom_name} (position {i})")
+                else:
+                    # print(f"DEBUG EGNN: ✗ Index {i} out of bounds for coordinate tensor of size {updated_sidechain_coords.size(0)}")
+                    break
 
+            # print(f"DEBUG EGNN: Successfully filled {atoms_filled} atom predictions")
 
-# Modified Loss Function for Sidechain Map Approach
-class SidechainMapCoordinateLoss(nn.Module):
-    """
-    Loss function that works directly with sidechain_map format.
-    No padding, no complex masking!
-    """
+            # Verify the results
+            total_predictions = 0
+            for batch_id in result['sidechain_predictions']:
+                for residue_key in result['sidechain_predictions'][batch_id]:
+                    num_atoms = len(result['sidechain_predictions'][batch_id][residue_key])
+                    total_predictions += num_atoms
 
-    def __init__(self, loss_type="mse", ligand_weight=1.0, sidechain_weight=0.5):
-        super().__init__()
-        self.loss_type = loss_type
-        self.ligand_weight = ligand_weight
-        self.sidechain_weight = sidechain_weight
-
-    def forward(self, predictions, targets=None):
-        """
-        Args:
-            predictions: Dict from EGNN model with structure:
-                {
-                    'ligand_coords': {batch_id: tensor[N_atoms, 3]},
-                    'sidechain_predictions': {batch_id: {residue_key: {atom_name: tensor[3]}}},
-                    'sidechain_targets': {batch_id: {residue_key: {atom_name: tensor[3]}}}
-                }
-        """
-        total_loss = 0.0
-        loss_dict = {}
-        total_atoms = 0
-
-        # Ligand coordinate loss
-        if 'ligand_coords' in predictions and predictions['ligand_coords']:
-            ligand_losses = []
-            ligand_atoms = 0
-
-            for batch_id, batch_data in predictions['ligand_coords'].items():
-                if isinstance(batch_data, dict) and 'predictions' in batch_data:
-                    pred_coords = batch_data['predictions']
-                    target_coords = batch_data['targets']
-
-                    if pred_coords.numel() > 0 and target_coords.numel() > 0:
-                        if self.loss_type == "mse":
-                            batch_loss = F.mse_loss(pred_coords, target_coords)
-                        elif self.loss_type == "huber":
-                            batch_loss = F.huber_loss(pred_coords, target_coords, delta=1.0)
-                        else:
-                            batch_loss = F.mse_loss(pred_coords, target_coords)
-
-                        ligand_losses.append(batch_loss)
-                        ligand_atoms += pred_coords.size(0)
-
-            if ligand_losses:
-                ligand_loss = torch.stack(ligand_losses).mean()
-                total_loss += self.ligand_weight * ligand_loss
-                loss_dict['ligand_coord_loss'] = ligand_loss.item()
-
-                # Calculate RMSD for logging
-                ligand_rmsd = ligand_loss.sqrt()
-                loss_dict['ligand_rmsd'] = ligand_rmsd.item()
-
-        # Sidechain coordinate loss - this is the main improvement!
-        if ('sidechain_predictions' in predictions and
-            'sidechain_targets' in predictions):
-
-            sidechain_losses = []
-            sidechain_atoms = 0
-
-            for batch_id in predictions['sidechain_predictions']:
-                if batch_id not in predictions['sidechain_targets']:
-                    continue
-
-                batch_predictions = predictions['sidechain_predictions'][batch_id]
-                batch_targets = predictions['sidechain_targets'][batch_id]
-
-                for residue_key in batch_predictions:
-                    if residue_key not in batch_targets:
-                        continue
-
-                    residue_predictions = batch_predictions[residue_key]
-                    residue_targets = batch_targets[residue_key]
-
-                    # Only compute loss for atoms that exist in both prediction and target
-                    common_atoms = set(residue_predictions.keys()) & set(residue_targets.keys())
-
-                    for atom_name in common_atoms:
-                        pred_coord = residue_predictions[atom_name]
-                        target_coord = residue_targets[atom_name]
-
-                        if self.loss_type == "mse":
-                            atom_loss = F.mse_loss(pred_coord, target_coord)
-                        elif self.loss_type == "huber":
-                            atom_loss = F.huber_loss(pred_coord, target_coord, delta=1.0)
-                        else:
-                            atom_loss = F.mse_loss(pred_coord, target_coord)
-
-                        sidechain_losses.append(atom_loss)
-                        sidechain_atoms += 1
-
-            if sidechain_losses:
-                sidechain_loss = torch.stack(sidechain_losses).mean()
-                total_loss += self.sidechain_weight * sidechain_loss
-                loss_dict['sidechain_coord_loss'] = sidechain_loss.item()
-
-                # Calculate RMSD for logging
-                rmsd_sum = 0
-                for loss_val in sidechain_losses:
-                    rmsd_sum += loss_val.sqrt()
-                sidechain_rmsd = rmsd_sum / len(sidechain_losses)
-                loss_dict['sidechain_rmsd'] = sidechain_rmsd.item()
-
-            total_atoms += sidechain_atoms
-
-        loss_dict['total_coord_loss'] = total_loss.item() if torch.is_tensor(total_loss) else total_loss
-        loss_dict['total_atoms_predicted'] = total_atoms
-
-        return total_loss, loss_dict
+            # print(f"DEBUG EGNN: Total predictions stored: {total_predictions}")
+        # for key in split_features:
+        #     # print shapes
+        #     for idx in split_features[key]:
+        #         print(f"DEBUG EGNN: {key} features shape: {split_features[key][idx].shape}")
+        return result, split_features
