@@ -6,11 +6,13 @@ import torch.bin
 
 from torch_geometric.nn.pool import graclus
 from torch_scatter import scatter_mean
+
 from src.model.gvp_encoder import GVPGraphEncoderHybrid as GVPGraphEncoder
-from src.model.my_modules import DirectCoordinatePredictor as SimpleStructModule
-from src.model.structure_modules.egnn_debug import EGNNCoordinatePredictor_SidechainMap as EGNNStructModule
-from .loss_utils import MultiTaskAffinityCoordinateLoss
-from .loss_utils import AffHuberLoss as AffinityLoss
+from src.model.my_modules import MLPCoordinatePredictor_SidechainMap as MLPStructModule
+from src.model.structure_modules.egnn_module import EGNNCoordinatePredictor_SidechainMap as EGNNStructModule
+
+from src.model.loss_utils import AffHuberLoss as AffinityLoss
+from src.model.loss_utils import SidechainMapCoordinateLoss as StrLoss
 
 class AFFModel_ThreeBody(pl.LightningModule):
     def __init__(self,
@@ -28,6 +30,8 @@ class AFFModel_ThreeBody(pl.LightningModule):
                  interaction_mode="hierarchical",
                  predict_str=False,
                  str_model_type="egnn", #"mlp",  # "mlp" or "egnn"
+                 str_loss_weight=0.3,
+                 str_loss_params=None,
                  loss_type="single",  # single: no classification head
                  loss_params=None):
         super().__init__()
@@ -94,7 +98,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
         # Structure Prediction Setups
         if predict_str:
-            self.str_loss_weight = 0.4
+            self.str_loss_weight = str_loss_weight
             if self.str_model_type == "egnn":
                 self.structure_predictor = EGNNStructModule(
                     lig_embed_dim=ligand_hidden_dims[0],
@@ -104,22 +108,19 @@ class AFFModel_ThreeBody(pl.LightningModule):
                     dropout=dropout
                 )
             if self.str_model_type == "mlp":
-                self.structure_predictor = SimpleStructModule(
+                self.structure_predictor = MLPStructModule(
                     lig_embed_dim=ligand_hidden_dims[0],
                     prot_embed_dim=embed_dim,
                     hidden_dim=128
                 )
-            # feature from structure module -> MLP
+            # process feature from structure module using MLP
             self.str_feature_mlp = nn.Sequential(
                 nn.Linear(embed_dim * 3, embed_dim),
                 nn.ReLU(),
                 nn.Dropout(dropout),
                 nn.Linear(embed_dim, embed_dim)
             )
-        else:
-            self.str_loss_weight = 0.0
 
-        # === Enhanced components ===
         # Main regression head
         if predict_str:
             embed_dim *= 2
@@ -173,40 +174,36 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 )
         elif loss_type == "single":
             self.aff_loss_fn = AffinityLoss(
-                delta=0.5,
-                extreme_weight=1.6,
+                beta=1.0,
+                extreme_weight=1.5,
                 ranking_weight=0.5)
 
         if self.predict_str:
-            from src.model.structure_modules.egnn_debug import SidechainMapCoordinateLoss as StrLoss
             self.str_loss_fn = StrLoss(
                 loss_type="mse",
                 ligand_weight=1,
-                sidechain_weight=0.2,
+                sidechain_weight=0.3,
                 use_distance_loss=True,
                 ligand_distance_weight=0.3,
                 sidechain_distance_weight=0,
                 distance_loss_type="mse",
                 distance_cutoff=5.0
             )
-            # self.combined_loss_fn = MultiTaskAffinityCoordinateLoss(
-            #     affinity_loss_fn=self.aff_loss_fn,
-            #     coord_loss_weight=self.coord_loss_weight,
-            #     coord_loss_type="mse",
-            #     lig_internal_dist_w=0 #0.1
-            # )
+
         self.loss_type = loss_type
 
     def forward(self, batch):
         interaction_results = self.get_embeddings(batch)
         complex_embedding = interaction_results['complex_embedding']  # [B, embed_dim]
         results = dict()
-        h = None  # Initialize h for structure prediction
+
         if self.predict_str:
             coord_results, h = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
             # if coord_results['sidechain_predictions'] is not None:
             results.update(coord_results)
+            # Concatenate complex embedding with feature from structure predictor
             complex_embedding = torch.cat([complex_embedding, h], dim=-1)  # [B, embed_dim * 2]
+
         if self.loss_type == "multitask":
             # Regression prediction
             pred_affinity = self.regressor(complex_embedding).squeeze()
@@ -229,10 +226,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 'target_affinity': affinities
             }
             results.update(results_aff)
-        # if self.predict_str:
-        #     coord_results = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
-        #     # if coord_results['sidechain_predictions'] is not None:
-        #     results.update(coord_results)
+
 
         return results
 
@@ -240,9 +234,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
         """Get embeddings before final prediction (for multi-task learning)"""
         protein_virtual_batch = batch['protein_virtual'].to(self.device)
         ligand_batch = batch['ligand'].to(self.device)
-
-        X_sidechain_padded = protein_virtual_batch.X_sidechain_padded.to(self.device)  # [B, N_prot, N_sidechain_max, 3]
-        X_sidechain_mask = protein_virtual_batch.X_sidechain_mask.to(self.device)  # [B, N_prot, N_sidechain_max]
 
         # Split protein and water nodes
         protein_mask = protein_virtual_batch.node_type == 0
@@ -281,8 +272,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
             'protein_batch_idx': protein_virtual_batch.batch[protein_mask],  # ← FIX: Only protein nodes
             'protein_embeddings_f': protein_embeddings_after_interaction,  # [N_protein, embed_dim]
             'backbone_coords': protein_virtual_batch.x[protein_mask],
-            'X_sidechain_padded': X_sidechain_padded,  # [B, N_prot, N_sidechain_max, 3]
-            'X_sidechain_mask': X_sidechain_mask,      # [B, N_prot, N_sidechain_max]
         }
 
     def _get_hierarchical_interaction_embeddings(self, prot_s, virtual_s, lig_s,
@@ -414,19 +403,11 @@ class AFFModel_ThreeBody(pl.LightningModule):
             ligand_batch=ligand_batch,
             sidechain_map=sidechain_map
         )
-        # h [N_differentforitem, emb_dim]
-        # mean pool h ?
         h = []
-                # for key in split_features:
-        #     # print shapes
-        #     for idx in split_features[key]:
-        #         print(f"DEBUG EGNN: {key} features shape: {split_features[key][idx].shape}")
         for batch_id in torch.unique(ligand_batch_idx):
             lig_h = h_dict['ligand_features'].get(batch_id.item(), None)
             protein_h = h_dict['protein_features'].get(batch_id.item(), None)
             sidechain_h = h_dict['sidechain_features'].get(batch_id.item(), None)
-            # protein_h = h_dict['protein_features'][batch_id]
-            # sidechain_h = h_dict['sidechain_features'][batch_id]
             lig_h = lig_h.mean(dim=0, keepdim=True)
             protein_h = protein_h.mean(dim=0, keepdim=True)
             sidechain_h = sidechain_h.mean(dim=0, keepdim=True)
@@ -464,6 +445,8 @@ class AFFModel_ThreeBody(pl.LightningModule):
         else:
             affinity_result = self.aff_loss_fn(results['affinity'], results['target_affinity'])
             if isinstance(affinity_result, tuple):
+                # reg_loss = weighted huber
+                # ranking loss = 1 - correlation
                 total_affinity_loss, reg_loss, ranking_loss, _, _ = affinity_result
                 loss_dict.update({
                     'affinity_loss': total_affinity_loss,
@@ -473,7 +456,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
         total_loss = total_affinity_loss
 
-        # ===== COORDINATE LOSS (new sidechain_map approach) =====
+        # ===== COORDINATE LOSS =====
         if self.predict_str and 'sidechain_predictions' in results:
             # Use the new SidechainMapCoordinateLoss
             str_loss, str_loss_dict = self.str_loss_fn(results)
@@ -484,67 +467,13 @@ class AFFModel_ThreeBody(pl.LightningModule):
             # Add coordinate losses to loss dict
             loss_dict.update(str_loss_dict)
             loss_dict['weighted_str_loss'] = weighted_str_loss.item()
-
         loss_dict['total_loss'] = total_loss.item()
 
         return total_loss, loss_dict
 
-    def _compute_loss_backup(self, results):
-        """Unified loss computation for both affinity and coordinate prediction"""
-        if self.predict_str and 'predicted_ligand_coords' in results:
-            # Use combined loss function
-            loss_kwargs = {
-                'pred_affinity': results['affinity'],
-                'target_affinity': results['target_affinity']
-            }
-
-            if self.loss_type == "multitask":
-                loss_kwargs['pred_logits'] = results['logits']
-
-            loss_kwargs.update({
-                'pred_lig_coords': results['predicted_ligand_coords'],
-                'target_lig_coords': results['target_ligand_coords'],
-                'lig_coord_mask': results['lig_coord_target_mask'],
-                'pred_sidechain_coords': results['predicted_sidechain_coords'],
-                'target_sidechain_coords': results['target_sidechain_coords'],
-                'prot_coord_mask': results['prot_coord_target_mask'],
-                'sidechain_mask': results['sidechain_mask']
-
-            })
-
-            total_loss, loss_dict = self.combined_loss_fn(**loss_kwargs)
-            return total_loss, loss_dict
-        else:
-            # Affinity-only loss
-            if self.loss_type == "multitask":
-                affinity_result = self.aff_loss_fn(
-                    results['affinity'], results['target_affinity'], results['logits']
-                )
-                if isinstance(affinity_result, tuple):
-                    total_loss, reg_loss, cat_penalty, extreme_penalty, pearson_pen = affinity_result
-                    loss_dict = {
-                        'total_loss': total_loss,
-                        'affinity_loss': total_loss,
-                        'reg_loss': reg_loss,
-                        'category_loss': cat_penalty,
-                        'extreme_penalty': extreme_penalty,
-                        'ranking_loss': pearson_pen # pearson penalty is used as ranking loss
-                    }
-            else:
-                affinity_result = self.aff_loss_fn(results['affinity'], results['target_affinity'])
-                if isinstance(affinity_result, tuple):
-                    total_loss, reg_loss, ranking_loss, _, _ = affinity_result
-                    loss_dict = {'total_loss': total_loss,
-                                 'affinity_loss': total_loss,
-                                 'reg_loss': reg_loss,
-                                 'ranking_loss': ranking_loss}
-
-            return total_loss, loss_dict
-
     def training_step(self, batch, batch_idx):
         results = self(batch)
         total_loss, loss_dict = self._compute_loss(results)
-
         # Log loss components
         actual_batch_size = len(batch['ligand'])
         for loss_name, loss_value in loss_dict.items():
