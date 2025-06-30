@@ -73,12 +73,13 @@ class LigandFeaturizer:
         """
         if not ligand.atoms:
             # Return None for empty ligands
-            return None 
+            return None
 
         # Get basic features
         pos = torch.tensor(ligand.get_coordinates(), dtype=torch.float32)
+        target_pos = pos.clone()  # Keep original coordinates for debugging
         # print first few coords
-        if center is not None: 
+        if center is not None:
             # move coordinates to center, if center is 0,0,0 and current ligand center is 50,50,50 I want lig center to go to given center
             pos = pos - pos.mean(dim=0)  # Center around origin
             # If center is provided, adjust coordinates
@@ -91,7 +92,7 @@ class LigandFeaturizer:
 
         # Process bonds
         atom_obj_to_idx_map = {atom_obj: i for i, atom_obj in enumerate(ligand.atoms)}
-        
+
         edge_src, edge_dst, edge_attr_list = [], [], []
         for atom1_obj, atom2_obj, border_type in ligand.bonds:
             idx1 = atom_obj_to_idx_map.get(atom1_obj)
@@ -100,13 +101,13 @@ class LigandFeaturizer:
             if idx1 is None or idx2 is None:
                 print(f"Warning: Atom object in bond not found in ligand's atom list. Skipping bond.")
                 continue
-            
+
             edge_src.extend([idx1, idx2])
             edge_dst.extend([idx2, idx1]) # Add edges in both directions
-            
+
             bond_f = self._get_bond_features(border_type)
             edge_attr_list.extend([bond_f, bond_f])
-        
+
         if edge_src:
             edge_index = torch.tensor([edge_src, edge_dst], dtype=torch.long)
             edge_attr = torch.stack(edge_attr_list)
@@ -122,8 +123,8 @@ class LigandFeaturizer:
         # Ligands are scalar-only, so we create zero vector features
         node_s = x  # All scalar features [N, feature_dim]
         node_v = torch.zeros(x.size(0), 0, 3, dtype=torch.float32)  # [N, 0, 3] - no vector features
-        
-        edge_s = edge_attr  # All scalar edge features [E, feature_dim]  
+
+        edge_s = edge_attr  # All scalar edge features [E, feature_dim]
         edge_v = torch.zeros(edge_attr.size(0), 0, 3, dtype=torch.float32)  # [E, 0, 3] - no vector features
 
         # Debug prints (remove after testing)
@@ -133,14 +134,15 @@ class LigandFeaturizer:
 
         return Data(
             # Keep original attributes for backward compatibility
-            x=x, 
-            edge_index=edge_index, 
-            edge_attr=edge_attr, 
+            x=x,
+            edge_index=edge_index,
+            edge_attr=edge_attr,
             pos=pos,
-            
+            target_pos=target_pos,
+
             # Add GVP-compatible attributes
             node_s=node_s.float(),
-            node_v=node_v.float(), 
+            node_v=node_v.float(),
             edge_s=edge_s.float(),
             edge_v=edge_v.float()
         )
@@ -151,7 +153,7 @@ class LigandFeaturizerWithGeometry(LigandFeaturizer):
     """
     Enhanced ligand featurizer that includes some geometric vector features
     """
-    
+
     def _compute_bond_vectors(self, ligand: Ligand, pos: torch.Tensor) -> torch.Tensor:
         """
         Compute bond direction vectors for ligand edges
@@ -159,22 +161,22 @@ class LigandFeaturizerWithGeometry(LigandFeaturizer):
         """
         if not ligand.bonds:
             return torch.zeros(0, 1, 3, dtype=torch.float32)
-        
+
         atom_obj_to_idx_map = {atom_obj: i for i, atom_obj in enumerate(ligand.atoms)}
-        
+
         bond_vectors = []
         for atom1_obj, atom2_obj, _ in ligand.bonds:
             idx1 = atom_obj_to_idx_map.get(atom1_obj)
             idx2 = atom_obj_to_idx_map.get(atom2_obj)
-            
+
             if idx1 is not None and idx2 is not None:
                 # Bond direction vector
                 bond_vec = pos[idx2] - pos[idx1]  # [3]
                 bond_vec_normalized = F.normalize(bond_vec.unsqueeze(0), dim=1)  # [1, 3]
-                
+
                 # Add for both directions (undirected graph)
                 bond_vectors.extend([bond_vec_normalized, -bond_vec_normalized])
-        
+
         if bond_vectors:
             vectors = torch.cat(bond_vectors, dim=0)  # [E, 3]
             return vectors.unsqueeze(1)  # [E, 1, 3]
@@ -195,23 +197,23 @@ class LigandFeaturizerWithGeometry(LigandFeaturizer):
 
         # Add geometric vector features
         pos = data.pos
-        
+
         # Node vector features: for now, keep as zero (could add atomic orbitals, etc.)
         node_v = torch.zeros(pos.size(0), 0, 3, dtype=torch.float32)
-        
+
         # Edge vector features: bond directions
         edge_v = self._compute_bond_vectors(ligand, pos)
-        
+
         # Update the data object
         data.node_v = node_v
         data.edge_v = edge_v
-        
-        print(f"Ligand featurization with geometry:")
-        print(f"  Nodes: {data.node_s.shape} scalar, {node_v.shape} vector") 
-        print(f"  Edges: {data.edge_s.shape} scalar, {edge_v.shape} vector")
-        
+
+        # print(f"Ligand featurization with geometry:")
+        # print(f"  Nodes: {data.node_s.shape} scalar, {node_v.shape} vector")
+        # print(f"  Edges: {data.edge_s.shape} scalar, {edge_v.shape} vector")
+
         return data
-    
+
 class LigandFeaturizer_old:
     def __init__(self):
         # Define vocabularies and mappings
@@ -281,7 +283,7 @@ class LigandFeaturizer_old:
             x = torch.empty((0, self.atom_feature_dim), dtype=torch.float32)
             edge_index = torch.empty((2, 0), dtype=torch.long)
             edge_attr = torch.empty((0, self.num_bond_features), dtype=torch.float32)
-            return None 
+            return None
             # return Data(x=x, edge_index=edge_index, pos=pos, edge_attr=edge_attr)
 
         pos = torch.tensor(ligand.get_coordinates(), dtype=torch.float32)
@@ -290,7 +292,7 @@ class LigandFeaturizer_old:
 
         # Ensure atoms in bonds are actual Atom objects from ligand.atoms for robust mapping
         atom_obj_to_idx_map = {atom_obj: i for i, atom_obj in enumerate(ligand.atoms)}
-        
+
         edge_src, edge_dst, edge_attr_list = [], [], []
         for atom1_obj, atom2_obj, border_type in ligand.bonds:
             idx1 = atom_obj_to_idx_map.get(atom1_obj)
@@ -300,13 +302,13 @@ class LigandFeaturizer_old:
                 # This case should ideally not happen if ligand.bonds is consistent with ligand.atoms
                 print(f"Warning: Atom object in bond not found in ligand's atom list. Skipping bond.")
                 continue
-            
+
             edge_src.extend([idx1, idx2])
             edge_dst.extend([idx2, idx1]) # Add edges in both directions
-            
+
             bond_f = self._get_bond_features(border_type)
             edge_attr_list.extend([bond_f, bond_f])
-        
+
         if edge_src:
             edge_index = torch.tensor([edge_src, edge_dst], dtype=torch.long)
             edge_attr = torch.stack(edge_attr_list)
@@ -320,4 +322,4 @@ class LigandFeaturizer_old:
         # print (f"Node features sample: {x[:5] if x.size(0) > 5 else x}, Edge attributes sample: {edge_attr[:5] if edge_attr.size(0) > 5 else edge_attr}")
         if x.size(0) == 0 or edge_index.size(1) == 0:
             return None
-        return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, pos=pos) 
+        return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, pos=pos)

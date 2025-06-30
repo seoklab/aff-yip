@@ -1,5 +1,6 @@
 # src/data/dataset_gvp.py
 import os
+import sys
 import torch
 # import torch_geometric # No longer directly used for Data creation here
 # import torch_cluster # No longer directly used here
@@ -16,8 +17,8 @@ class RLADataset(Dataset):
     def __init__(self, data_path=None, target_dict: dict = None, mode='train', top_k=30, crop_size=30): # max_length not used in snippet
         self.data_path = data_path
         self.mode = mode
-        self.top_k = top_k 
-        self.crop_size = crop_size 
+        self.top_k = top_k
+        self.crop_size = crop_size
         self.samples = []
         self.skip_virtual = False
         # Instantiate featurizers
@@ -74,21 +75,21 @@ class RLADataset(Dataset):
                     else:
                         protein_virtual_graph = None
                     """
-                    featurize_graph_with_water handles has_water check 
+                    featurize_graph_with_water handles has_water check
                     if protein_obj has water, it will include it in the graph
                     """
                     # These three are equivalent / protein graph without water and without virtual nodes
-                    # print ('Featurizing protein only, using no_water_protein object') 
+                    # print ('Featurizing protein only, using no_water_protein object')
                     # protein_only_graph = self.protein_featurizer.featurize_graph_with_water(protein_obj, center=center, crop_size=self.crop_size)
-                    protein_only_graph = self.protein_featurizer.featurize_no_water_graph(protein_obj, center=center, crop_size=self.crop_size)  
+                    protein_only_graph = self.protein_featurizer.featurize_no_water_graph(protein_obj, center=center, crop_size=self.crop_size)
                     # print ('Featurizing protein only, using water_protein object with no_water function')
-                    # protein_only_graph = self.protein_featurizer.featurize_no_water_graph(protein_w_obj, center=center, crop_size=self.crop_size)    
+                    # protein_only_graph = self.protein_featurizer.featurize_no_water_graph(protein_w_obj, center=center, crop_size=self.crop_size)
 
                     ## protein graph with water but without virtual nodes
                     protein_water_graph = self.protein_featurizer.featurize_graph_with_water(protein_w_obj, center=center, crop_size=self.crop_size)
-                    
+
                     ligand_graph = self.ligand_featurizer.featurize_graph(ligand_obj, center=center)
-                    # ligand_graph.name = name 
+                    # ligand_graph.name = name
                     # if any of the graphs are None, skip this sample
                     if not self.skip_virtual:
                         if protein_virtual_graph is None or protein_water_graph is None or protein_only_graph is None or ligand_graph is None:
@@ -129,24 +130,24 @@ class RLADataset(Dataset):
                 target_name='default_target'  # Default target name for testing
             )
             """
-            featurize_graph_with_water handles has_water check 
+            featurize_graph_with_water handles has_water check
             if protein_obj has water, it will include it in the graph
             """
             # These three are equivalent / protein graph without water and without virtual nodes
-            print ('Featurizing protein only, using no_water_protein object') 
-            protein_only_graph = self.protein_featurizer.featurize_graph_with_water(self.default_protein_obj, center=center, crop_size=self.crop_size)  
+            print ('Featurizing protein only, using no_water_protein object')
+            protein_only_graph = self.protein_featurizer.featurize_graph_with_water(self.default_protein_obj, center=center, crop_size=self.crop_size)
             print ('Featurizing protein only, using no_water_protein object, with no_water function')
-            protein_only_graph = self.protein_featurizer.featurize_no_water_graph(self.default_protein_obj, center=center, crop_size=self.crop_size) 
+            protein_only_graph = self.protein_featurizer.featurize_no_water_graph(self.default_protein_obj, center=center, crop_size=self.crop_size)
             print ('Featurizing protein only, using water_protein object with no_water function')
-            protein_only_graph = self.protein_featurizer.featurize_no_water_graph(self.default_protein_w_obj, center=center, crop_size=self.crop_size) 
+            protein_only_graph = self.protein_featurizer.featurize_no_water_graph(self.default_protein_w_obj, center=center, crop_size=self.crop_size)
 
             ## protein graph with water but without virtual nodes
             print ('Featurizing protein with water (no virtual nodes), using water_protein object')
             protein_water_graph = self.protein_featurizer.featurize_graph_with_water(self.default_protein_w_obj, center=center, crop_size=self.crop_size)
-            
+
             ligand_graph = self.ligand_featurizer.featurize_graph(self.default_ligand_obj)
-            
-            data_sample = { 
+
+            data_sample = {
                 'protein_virtual': protein_virtual_graph, # Protein graph + water + virtual nodes
                 'protein_water': protein_water_graph, # Protein gra
                 'protein_only': protein_only_graph, # Protein - water - virtual nodes
@@ -176,14 +177,14 @@ class RLADatasetLazy(Dataset):
     def __init__(self, data_path=None, target_dict: dict = None, mode='train', top_k=30, crop_size=30, validate_samples=True):
         self.data_path = data_path
         self.mode = mode
-        self.top_k = top_k 
-        self.crop_size = crop_size 
+        self.top_k = top_k
+        self.crop_size = crop_size
         self.skip_virtual = False
         self.validate_samples = validate_samples
-        
+
         # Store only metadata for lazy loading
         self.sample_metadata = []
-        
+
         # Instantiate featurizers (lightweight)
         self.protein_featurizer = ProteinFeaturizer(top_k=self.top_k)
         self.ligand_featurizer = LigandFeaturizer()
@@ -199,7 +200,7 @@ class RLADatasetLazy(Dataset):
         else:
             # Test/default mode - use default files
             self._create_default_metadata()
-            
+
         print(f"[Dataset] Initialized {self.__class__.__name__} with {len(self.sample_metadata)} valid samples in {mode} mode")
 
     def _process_target_dict(self, target_dict):
@@ -218,7 +219,7 @@ class RLADatasetLazy(Dataset):
 
                 # Check required fields
                 if not pdbfile or not ligfile:
-                    print(f"[Warning] Skipped {name}: Missing PDB or ligand file path.")
+                    print(f"[Warning] Skipped {name}: Missing PDB or ligand file path.", file=sys.stderr)
                     continue
 
                 # Validate file existence if requested
@@ -232,9 +233,9 @@ class RLADatasetLazy(Dataset):
                         missing_files.append(f"Ligand: {ligfile}")
                     if ligfile_for_vn and not os.path.exists(ligfile_for_vn):
                         missing_files.append(f"VN Ligand: {ligfile_for_vn}")
-                    
+
                     if missing_files:
-                        print(f"[Warning] Skipped {name}: Missing files - {', '.join(missing_files)}")
+                        print(f"[Warning] Skipped {name}: Missing files - {', '.join(missing_files)}", file=sys.stderr)
                         continue
 
                 # Create metadata
@@ -250,17 +251,17 @@ class RLADatasetLazy(Dataset):
                     'is_default': False
                 }
                 self.sample_metadata.append(metadata)
-                
+
             except Exception as e:
                 target_name_for_error = target_info.get('name', 'Unknown Target')
-                print(f"[Warning] Skipped {target_name_for_error} due to error: {e}")
+                print(f"[Warning] Skipped {target_name_for_error} due to error: {e}", file=sys.stderr)
 
     def _create_default_metadata(self):
         """Create default metadata for testing"""
         if not self.data_path:
             print("[Warning] No data_path provided and no target_dict - cannot create default sample")
             return
-            
+
         # Check if default files exist
         if self.validate_samples:
             missing_defaults = []
@@ -270,7 +271,7 @@ class RLADatasetLazy(Dataset):
                 missing_defaults.append(f"Default protein with water: {self.default_protein_w_path}")
             if not os.path.exists(self.default_ligand_path):
                 missing_defaults.append(f"Default ligand: {self.default_ligand_path}")
-            
+
             if missing_defaults:
                 print(f"[Warning] Cannot create default sample: {', '.join(missing_defaults)}")
                 return
@@ -298,32 +299,32 @@ class RLADatasetLazy(Dataset):
         pdbfile = metadata['pdb_file_biolip']
         pdbfile_raw = metadata['pdb_file_db']
         receptor_chain = metadata['receptor_chain']
-        
+
         # Create protein objects only when needed
         protein_w_obj = Protein(
-            pdb_filepath=pdbfile_raw, 
-            read_water=True, 
-            read_ligand=False, 
+            pdb_filepath=pdbfile_raw,
+            read_water=True,
+            read_ligand=False,
             read_chain=[receptor_chain] if receptor_chain else []
         )
         protein_obj = Protein(
-            pdb_filepath=pdbfile, 
-            read_water=False, 
+            pdb_filepath=pdbfile,
+            read_water=False,
             read_ligand=False
         )
-        
+
         return protein_w_obj, protein_obj
 
     def _create_ligand_objects(self, metadata):
         """Create ligand objects from metadata"""
         ligfile = metadata['ligand_mol2']
         ligfile_for_vn = metadata['ligfile_for_vn']
-        
+
         ligand_obj = Ligand(mol2_filepath=ligfile, drop_H=False)
         ligand_for_vn = None
         if ligfile_for_vn:
             ligand_for_vn = Ligand(mol2_filepath=ligfile_for_vn, drop_H=False)
-            
+
         return ligand_obj, ligand_for_vn
 
     def _generate_graphs(self, metadata):
@@ -332,22 +333,22 @@ class RLADatasetLazy(Dataset):
             # Create objects only when needed
             protein_w_obj, protein_obj = self._create_protein_objects(metadata)
             ligand_obj, ligand_for_vn = self._create_ligand_objects(metadata)
-            
+
             center = metadata['center']
             name = metadata['name']
-            
+
             # Initialize graphs
             graphs = {}
-            
+
             # Generate protein-only graph (no water, no virtual nodes)
-            protein_only_graph, sidechain_map = self.protein_featurizer.featurize_graph_basic(
+            protein_only_graph, sidechain_map = self.protein_featurizer.featurize_graph_wo_virtual_nodes(
                 protein_obj, center=center, crop_size=self.crop_size
             )
             if protein_only_graph is None:
-                print(f"[Warning] {name}: Failed to create protein-only graph")
+                print(f"[Warning] {name}: Failed to create protein-only graph", file=sys.stderr)
                 return None
             graphs['protein_only'] = protein_only_graph
-            
+
             # # Generate protein+water graph (water, no virtual nodes)
             # protein_water_graph = self.protein_featurizer.featurize_graph_with_water(
             #     protein_w_obj, center=center, crop_size=self.crop_size
@@ -356,7 +357,7 @@ class RLADatasetLazy(Dataset):
             #     print(f"[Warning] {name}: Failed to create protein+water graph")
             #     return None
             # graphs['protein_water'] = protein_water_graph
-            
+
             # Generate protein+water+virtual nodes graph (if not skipping virtual)
             if not self.skip_virtual:
                 protein_virtual_graph, sidechain_map_v = self.protein_featurizer.featurize_graph_with_virtual_nodes(
@@ -369,14 +370,14 @@ class RLADatasetLazy(Dataset):
                     target_name=name
                 )
                 if protein_virtual_graph is None:
-                    print(f"[Warning] {name}: Failed to create protein+virtual graph")
+                    print(f"[Warning] {name}: Failed to create protein+virtual graph", file=sys.stderr)
                     return None
                 graphs['protein_virtual'] = protein_virtual_graph
-            
+
             # Generate ligand graph
             ligand_graph = self.ligand_featurizer.featurize_graph(ligand_obj, center=center)
             if ligand_graph is None:
-                print(f"[Warning] {name}: Failed to create ligand graph")
+                print(f"[Warning] {name}: Failed to create ligand graph", file=sys.stderr)
                 return None
             graphs['ligand'] = ligand_graph
             # Create final sample
@@ -385,62 +386,61 @@ class RLADatasetLazy(Dataset):
                 **graphs,
                 'affinity': metadata['affinity'],
             }
-            
+
             return sample, sidechain_map
-                
+
         except Exception as e:
-            print(f"[Warning] Error generating graphs for {metadata['name']}: {e}")
+            print(f"[Warning] Error generating graphs for {metadata['name']}: {e}", file=sys.stderr)
             return None
 
     def __getitem__(self, idx):
         """Generate graphs lazily when requested"""
         if len(self.sample_metadata) == 0:
-            raise RuntimeError("Dataset has no valid samples!")
-        
+            raise RuntimeError("Dataset has no valid samples!", file=sys.stderr)
+
         max_retries = len(self.sample_metadata)  # Don't retry more than total samples
         retry_count = 0
         attempted_indices = set()
-        
+
         while retry_count < max_retries:
             try:
                 # Use modulo to wrap around if we've exhausted samples
                 actual_idx = (idx + retry_count) % len(self.sample_metadata)
-                
+
                 # Avoid infinite loops by tracking attempted indices
                 if actual_idx in attempted_indices:
                     retry_count += 1
                     continue
                 attempted_indices.add(actual_idx)
-                
+
                 metadata = self.sample_metadata[actual_idx]
                 sample, sidechain_map = self._generate_graphs(metadata)
-                
+
                 if sample is not None:
                     return sample, sidechain_map
                 else:
-                    print(f"[Dataset] Sample {actual_idx} ({metadata['name']}) returned None, trying next sample...")
-                    retry_count += 1
-                    
+                    print(f"[Dataset] Sample {actual_idx} ({metadata['name']}) returned None, trying next sample...", file=sys.stderr)
+
             except Exception as e:
-                print(f"[Dataset] Error in __getitem__ for index {actual_idx}: {e}")
+                # print(f"[Dataset] Error in __getitem__ for index {actual_idx}: {e}")
                 retry_count += 1
-        
+
         # If all retries failed, this indicates a serious problem
-        print(f"[Dataset] CRITICAL: All {max_retries} retries failed for index {idx}")
-        print(f"[Dataset] Attempted indices: {sorted(attempted_indices)}")
-        print(f"[Dataset] This suggests a fundamental issue with your data or featurizers")
-        
+        print(f"[Dataset] CRITICAL: All {max_retries} retries failed for index {idx}", file=sys.stderr)
+        print(f"[Dataset] Attempted indices: {sorted(attempted_indices)}", file=sys.stderr)
+        print("[Dataset] This suggests a fundamental issue with your data or featurizers", file=sys.stderr)
+
         # Return dummy sample as last resort, but this indicates a problem
         return self._create_dummy_sample(), None
 
     def _create_dummy_sample(self):
         """Create a minimal dummy sample when all else fails"""
         print("[Warning] Creating dummy sample - this indicates a problem with your data")
-        
+
         # Try to get feature dimensions from a working sample first
         dummy_node_features = None
         dummy_edge_features = None
-        
+
         # Look for a working sample to get correct dimensions
         for i in range(min(5, len(self.sample_metadata))):
             try:
@@ -451,37 +451,37 @@ class RLADatasetLazy(Dataset):
                     if hasattr(ref_graph, 'x') and ref_graph.x is not None:
                         node_dim = ref_graph.x.shape[1]
                         dummy_node_features = torch.zeros((1, node_dim), dtype=torch.float32)
-                        print(f"[Dummy] Using node feature dim: {node_dim}")
-                    
+                        print(f"[Dummy] Using node feature dim: {node_dim}", file=sys.stderr)
+
                     if hasattr(ref_graph, 'edge_attr') and ref_graph.edge_attr is not None and ref_graph.edge_attr.numel() > 0:
                         edge_dim = ref_graph.edge_attr.shape[1]
                         dummy_edge_features = torch.zeros((0, edge_dim), dtype=torch.float32)
-                        print(f"[Dummy] Using edge feature dim: {edge_dim}")
+                        print(f"[Dummy] Using edge feature dim: {edge_dim}", file=sys.stderr)
                     else:
                         dummy_edge_features = None
-                        print("[Dummy] No edge features found")
+                        print("[Dummy] No edge features found", file=sys.stderr)
                     break
             except Exception as e:
-                print(f"[Dummy] Exception while generating sample: {e}")
+                print(f"[Dummy] Exception while generating sample: {e}", file=sys.stderr)
                 continue
-        
+
         # Fallback dimensions if we couldn't find any working sample
         if dummy_node_features is None:
-            print("[Warning] Could not determine node feature dimensions, using fallback")
+            print("[Warning] Could not determine node feature dimensions, using fallback", file=sys.stderr)
             dummy_node_features = torch.zeros((1, 20), dtype=torch.float32)  # Conservative guess
-        
+
         if dummy_edge_features is None:
-            print("[Warning] Using no edge features for dummy sample")
+            print("[Warning] Using no edge features for dummy sample", file=sys.stderr)
             dummy_edge_features = torch.empty((0, 0), dtype=torch.float32)
-        
+
         dummy_edge_index = torch.zeros((2, 0), dtype=torch.long)
-        
+
         dummy_graph = Data(
             x=dummy_node_features,
             edge_index=dummy_edge_index,
             edge_attr=dummy_edge_features if dummy_edge_features.numel() > 0 else None
         )
-        
+
         sample = {
             'name': 'dummy_sample',
             'protein_water': dummy_graph.clone(),
@@ -490,24 +490,24 @@ class RLADatasetLazy(Dataset):
             'affinity': torch.tensor(0.0, dtype=torch.float32),
             'sidechain_map': None  # No sidechain map for dummy
         }
-        
+
         if not self.skip_virtual:
             sample['protein_virtual'] = dummy_graph.clone()
-            
+
         return sample
 
     def debug_sample(self, idx):
         """Debug a specific sample to see what's happening"""
         print(f"\n=== DEBUGGING SAMPLE {idx} ===")
-        
+
         if idx >= len(self.sample_metadata):
             print(f"Index {idx} out of range. Dataset has {len(self.sample_metadata)} samples.")
             return None
-            
+
         metadata = self.sample_metadata[idx]
         print(f"Sample name: {metadata['name']}")
         print(f"Metadata: {metadata}")
-        
+
         # Check file existence
         files_to_check = ['pdb_file_biolip', 'pdb_file_db', 'ligand_mol2']
         for file_key in files_to_check:
@@ -517,11 +517,11 @@ class RLADatasetLazy(Dataset):
                 print(f"{file_key}: {file_path} (exists: {exists})")
             else:
                 print(f"{file_key}: None")
-        
+
         if metadata.get('ligfile_for_vn'):
             exists = os.path.exists(metadata['ligfile_for_vn'])
             print(f"ligfile_for_vn: {metadata['ligfile_for_vn']} (exists: {exists})")
-        
+
         # Try to create objects
         try:
             print("\n--- Creating protein objects ---")
@@ -533,7 +533,7 @@ class RLADatasetLazy(Dataset):
             import traceback
             traceback.print_exc()
             return None
-            
+
         try:
             print("\n--- Creating ligand objects ---")
             ligand_obj, ligand_for_vn = self._create_ligand_objects(metadata)
@@ -544,7 +544,7 @@ class RLADatasetLazy(Dataset):
             import traceback
             traceback.print_exc()
             return None
-            
+
         try:
             print("\n--- Generating graphs ---")
             sample = self._generate_graphs(metadata)
@@ -568,61 +568,61 @@ class RLADatasetLazy(Dataset):
     def validate_feature_consistency(self, num_samples=5):
         """Validate that samples have consistent feature dimensions"""
         print(f"\n=== VALIDATING FEATURE CONSISTENCY ===")
-        
+
         feature_dims = {}
         valid_samples = 0
-        
+
         for i in range(min(num_samples, len(self.sample_metadata))):
             try:
                 print(f"\nChecking sample {i}: {self.sample_metadata[i]['name']}")
                 sample = self._generate_graphs(self.sample_metadata[i])
-                
+
                 if sample is None:
                     print(f"  Sample {i}: Failed to generate")
                     continue
-                
+
                 valid_samples += 1
-                
+
                 for key, graph in sample.items():
                     if hasattr(graph, 'x') and graph.x is not None:
                         node_dim = graph.x.shape[1]
                         if key not in feature_dims:
                             feature_dims[key] = {'node_dims': set(), 'edge_dims': set()}
                         feature_dims[key]['node_dims'].add(node_dim)
-                        
+
                         edge_dim = None
                         if hasattr(graph, 'edge_attr') and graph.edge_attr is not None and graph.edge_attr.numel() > 0:
                             edge_dim = graph.edge_attr.shape[1]
                             feature_dims[key]['edge_dims'].add(edge_dim)
-                        
+
                         print(f"  {key}: nodes={graph.x.shape[0]}x{node_dim}, edges={graph.edge_index.shape[1]}x{edge_dim}")
-                        
+
             except Exception as e:
                 print(f"  Sample {i}: Error - {e}")
-        
+
         print(f"\n=== CONSISTENCY REPORT ===")
         print(f"Valid samples checked: {valid_samples}/{num_samples}")
-        
+
         all_consistent = True
         for key, dims in feature_dims.items():
             node_dims = dims['node_dims']
             edge_dims = dims['edge_dims']
-            
+
             node_consistent = len(node_dims) <= 1
             edge_consistent = len(edge_dims) <= 1
-            
+
             print(f"\n{key}:")
             print(f"  Node feature dims: {sorted(node_dims)} ({'✓ Consistent' if node_consistent else '✗ INCONSISTENT'})")
             print(f"  Edge feature dims: {sorted(edge_dims) if edge_dims else 'None'} ({'✓ Consistent' if edge_consistent else '✗ INCONSISTENT'})")
-            
+
             if not (node_consistent and edge_consistent):
                 all_consistent = False
-        
+
         if all_consistent:
             print(f"\n✓ All features are consistent!")
         else:
             print(f"\n✗ Feature inconsistencies detected!")
-            
+
         return feature_dims, all_consistent
 
     def get_sample_info(self):
@@ -633,19 +633,19 @@ class RLADatasetLazy(Dataset):
         print(f"Skip virtual: {self.skip_virtual}")
         print(f"Top K: {self.top_k}")
         print(f"Crop size: {self.crop_size}")
-        
+
         if len(self.sample_metadata) > 0:
             print(f"\nFirst few samples:")
             for i, meta in enumerate(self.sample_metadata[:3]):
                 print(f"  {i}: {meta['name']} (default: {meta['is_default']})")
-        
+
         return {
             'total_samples': len(self.sample_metadata),
             'mode': self.mode,
             'skip_virtual': self.skip_virtual,
             'has_defaults': any(meta['is_default'] for meta in self.sample_metadata)
         }
-     
+
 if __name__ == '__main__':
     # Example usage
     ProteinDataset = RLADataset(data_path='data', mode='train')

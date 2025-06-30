@@ -12,7 +12,7 @@ import scipy
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
-from src.data.structures import Protein, Ligand, VirtualNode
+from src.data.structures import Protein, Ligand, VirtualNode, Residue
 
 from src.data.featurizers.const import AA_to_tip, AMINOACID, METAL, NUCLEICACID
 
@@ -61,11 +61,27 @@ def get_positional_embeddings(edge_index, num_embeddings=None):
     angles = d.unsqueeze(-1) * freqs
     return torch.cat([torch.sin(angles), torch.cos(angles)], dim=-1)
 
-def stack_residue_coordinates(protein_obj: Protein) -> torch.Tensor:
+def get_sidechain_info(residue_s: list[Residue]): 
+    sidechain_info = {} 
+    for residue in residue_s:
+        sidechain_coords = {} 
+        for atom in residue.atoms:
+            if atom.name in ['N', 'CA', 'C', 'O']:
+                continue
+            sidechain_coords[atom.name] = atom.coordinates
+        sidechain_info[str(residue)] = sidechain_coords
+    # print (f"Number of residues in residue_s: {len(residue_s)}")
+    # print (f"Number of residues with sidechain info: {len(sidechain_info)}")
+    return sidechain_info
+ 
+def stack_bb_coordinates(protein_obj: Protein) -> torch.Tensor:
     num_residues = len(protein_obj.residues)
     protein_coords_list = []
     residue_s = []
+    residue_processed = set()  # To track processed residues
     for residue in protein_obj.residues:
+        if str(residue) in residue_processed: 
+            continue
         if residue.is_ligand:
             num_residues -= 1 # Skip water or ligand residues
             continue
@@ -79,13 +95,14 @@ def stack_residue_coordinates(protein_obj: Protein) -> torch.Tensor:
                 "is missing one or more backbone atoms (N, CA, C) required for dihedral calculation."
             )
         residue_s.append(residue)
+        residue_processed.add(str(residue))  # Mark this residue as processed
 
         protein_coords_list.append(torch.tensor(n_atom.coordinates, dtype=torch.float32))
         protein_coords_list.append(torch.tensor(ca_atom.coordinates, dtype=torch.float32))
         protein_coords_list.append(torch.tensor(c_atom.coordinates, dtype=torch.float32))
-    
+    # print (f'number of residues in protein {protein_obj.name}: {num_residues}, {len(residue_s)} residues with N, CA, C atoms')
     X_protein_flat = torch.stack(protein_coords_list)
-    return X_protein_flat # residue_s
+    return X_protein_flat, residue_s
 
 
 def stack_water_coordinates(protein_obj: Protein) -> torch.Tensor:

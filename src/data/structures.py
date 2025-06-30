@@ -112,7 +112,7 @@ class Protein:
                     else: # Stop at first non-digit (e.g. insertion code)
                         break 
                 if not res_num_str: # if nothing was found, it is not a valid number.
-                    print(f"Warning: Could not parse residue number from '{parts[1]}' in '{reschain_id_str}'. Skipping residue.")
+                    print(f"Warning: Could not parse residue number from '{parts[1]}' in '{str(reschain)}'. Skipping residue.")
                     continue
                 res_num = int(res_num_str)
 
@@ -149,6 +149,17 @@ class Protein:
 
         return np.stack(ncaco_coords)
     
+    def get_ca_coordinates(self):
+        """Get the coordinates of CA atoms in the protein."""
+        ca_coords = []
+        for residue in self.residues:
+            if residue.is_water or (self.excl_aa_types and residue.res_name in self.excl_aa_types):
+                continue
+            ca_atom = residue.get_ca()
+            if ca_atom is not None:
+                ca_coords.append(ca_atom.coordinates)
+        return (ca_coords)
+     
     def get_sidechain_info(self): 
         sidechain_info = {} 
         for residue in self.residues:
