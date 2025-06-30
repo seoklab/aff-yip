@@ -6,14 +6,308 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class AffHuberLoss(nn.Module):
+    def __init__(self,
+                 beta=1.0,                    # Huber threshold
+                 extreme_weight=2.0,           # Boost for extremes
+                 ranking_weight=0.1,           # Preserve correlations
+                 **kwargs):                    # Absorb unused parameters
+        super().__init__()
+        self.beta = beta
+        self.extreme_weight = extreme_weight
+        self.ranking_weight = ranking_weight
+
+    def forward(self, pred_aff, target_aff, pred_logits=None):
+        # Main Huber loss
+        huber_base = F.smooth_l1_loss(pred_aff, target_aff, beta=self.beta, reduction='none')
+
+        # Extreme value emphasis
+        extreme_mask = (target_aff < 4.5) | (target_aff > 8.5)
+        weights = torch.ones_like(target_aff)
+        weights[extreme_mask] = self.extreme_weight
+
+        weighted_huber = (huber_base * weights).mean()
+
+        # Ranking preservation
+        ranking_loss = torch.tensor(0.0, device=pred_aff.device)
+        if self.ranking_weight > 0 and pred_aff.numel() > 1:  # Use .numel() instead of len()
+            pred_centered = pred_aff - pred_aff.mean()
+            target_centered = target_aff - target_aff.mean()
+            correlation = (pred_centered * target_centered).sum() / (
+                torch.sqrt((pred_centered ** 2).sum() * (target_centered ** 2).sum()) + 1e-8
+            )
+            ranking_loss = 1.0 - correlation
+        total_loss = weighted_huber + self.ranking_weight * ranking_loss
+        
+        return (total_loss, weighted_huber, ranking_loss,
+                torch.tensor(0.0), torch.tensor(0.0))
+    
+# Modified Loss Function for Sidechain Map Approach
+class SidechainMapCoordinateLoss(nn.Module):
+    """
+    Loss function that works directly with sidechain_map format.
+    Now includes intra-molecular distance preservation loss for geometric consistency.
+    """
+
+    def __init__(self,
+                 loss_type="mse",
+                 ligand_weight=1.0,
+                 sidechain_weight=0.5,
+                 use_distance_loss=True,
+                 ligand_distance_weight=0.2,
+                 sidechain_distance_weight=0.1,
+                 distance_loss_type="mse",
+                 distance_cutoff=5.0):
+        super().__init__()
+        self.loss_type = loss_type
+        self.ligand_weight = ligand_weight
+        self.sidechain_weight = sidechain_weight
+        self.use_distance_loss = use_distance_loss
+        self.ligand_distance_weight = ligand_distance_weight
+        self.sidechain_distance_weight = sidechain_distance_weight
+        self.distance_loss_type = distance_loss_type
+        self.distance_cutoff = distance_cutoff  # Only consider distances below this threshold
+
+    def compute_distance_matrix(self, coords):
+        """
+        Compute pairwise distance matrix for a set of coordinates.
+        Args:
+            coords: tensor of shape [N, 3]
+        Returns:
+            distance_matrix: tensor of shape [N, N]
+        """
+        # coords: [N, 3]
+        # Compute pairwise distances efficiently
+        diff = coords.unsqueeze(1) - coords.unsqueeze(0)  # [N, N, 3]
+        distances = torch.norm(diff, dim=2)  # [N, N]
+        return distances
+
+    def distance_loss_fn(self, pred_distances, target_distances, mask=None):
+        """
+        Compute distance preservation loss between predicted and target distance matrices.
+        """
+        if mask is not None:
+            pred_distances = pred_distances[mask]
+            target_distances = target_distances[mask]
+
+        if self.distance_loss_type == "mse":
+            return F.mse_loss(pred_distances, target_distances)
+        elif self.distance_loss_type == "huber":
+            return F.huber_loss(pred_distances, target_distances, delta=1.0)
+        elif self.distance_loss_type == "l1":
+            return F.l1_loss(pred_distances, target_distances)
+        else:
+            return F.mse_loss(pred_distances, target_distances)
+
+    def compute_ligand_distance_loss(self, predictions):
+        """
+        Compute distance preservation loss for ligand molecules.
+        """
+        distance_losses = []
+
+        for batch_id, batch_data in predictions['ligand_coords'].items():
+            if isinstance(batch_data, dict) and 'predictions' in batch_data and 'targets' in batch_data:
+                pred_coords = batch_data['predictions']
+                target_coords = batch_data['targets']
+
+                if pred_coords.numel() > 0 and target_coords.numel() > 0 and pred_coords.size(0) > 1:
+                    # Compute distance matrices
+                    pred_distances = self.compute_distance_matrix(pred_coords)
+                    target_distances = self.compute_distance_matrix(target_coords)
+
+                    # Create mask to only consider distances below cutoff
+                    # Also exclude diagonal (self-distances = 0)
+                    mask = (target_distances > 0) & (target_distances <= self.distance_cutoff)
+
+                    if mask.sum() > 0:  # Only compute loss if we have valid distances
+                        batch_distance_loss = self.distance_loss_fn(pred_distances, target_distances, mask)
+                        distance_losses.append(batch_distance_loss)
+
+        if distance_losses:
+            return torch.stack(distance_losses).mean()
+        else:
+            return torch.tensor(0.0, device=pred_coords.device if 'pred_coords' in locals() else 'cpu')
+
+    def compute_sidechain_distance_loss(self, predictions):
+        """
+        Compute distance preservation loss for sidechain atoms within each residue.
+        """
+        distance_losses = []
+
+        for batch_id in predictions['sidechain_predictions']:
+            if batch_id not in predictions['sidechain_targets']:
+                continue
+
+            batch_predictions = predictions['sidechain_predictions'][batch_id]
+            batch_targets = predictions['sidechain_targets'][batch_id]
+
+            for residue_key in batch_predictions:
+                if residue_key not in batch_targets:
+                    continue
+
+                residue_predictions = batch_predictions[residue_key]
+                residue_targets = batch_targets[residue_key]
+
+                # Get common atoms that exist in both prediction and target
+                common_atoms = set(residue_predictions.keys()) & set(residue_targets.keys())
+
+                if len(common_atoms) > 1:  # Need at least 2 atoms for distances
+                    # Collect coordinates for this residue
+                    pred_coords_list = []
+                    target_coords_list = []
+
+                    for atom_name in sorted(common_atoms):  # Sort for consistent ordering
+                        pred_coords_list.append(residue_predictions[atom_name])
+                        target_coords_list.append(residue_targets[atom_name])
+
+                    # Stack into tensors
+                    pred_coords = torch.stack(pred_coords_list)  # [N_atoms, 3]
+                    target_coords = torch.stack(target_coords_list)  # [N_atoms, 3]
+
+                    # Compute distance matrices
+                    pred_distances = self.compute_distance_matrix(pred_coords)
+                    target_distances = self.compute_distance_matrix(target_coords)
+
+                    # Create mask to exclude diagonal and only consider reasonable distances
+                    mask = (target_distances > 0) & (target_distances <= self.distance_cutoff)
+
+                    if mask.sum() > 0:
+                        residue_distance_loss = self.distance_loss_fn(pred_distances, target_distances, mask)
+                        distance_losses.append(residue_distance_loss)
+
+        if distance_losses:
+            return torch.stack(distance_losses).mean()
+        else:
+            # Return zero loss on appropriate device
+            if predictions['sidechain_predictions']:
+                first_batch = list(predictions['sidechain_predictions'].values())[0]
+                if first_batch:
+                    first_residue = list(first_batch.values())[0]
+                    if first_residue:
+                        first_atom = list(first_residue.values())[0]
+                        return torch.tensor(0.0, device=first_atom.device)
+            return torch.tensor(0.0)
+
+    def forward(self, predictions, targets=None):
+        """
+        Args:
+            predictions: Dict from EGNN model with structure:
+                {
+                    'ligand_coords': {batch_id: {'predictions': tensor, 'targets': tensor}},
+                    'sidechain_predictions': {batch_id: {residue_key: {atom_name: tensor[3]}}},
+                    'sidechain_targets': {batch_id: {residue_key: {atom_name: tensor[3]}}}
+                }
+        """
+        total_loss = 0.0
+        loss_dict = {}
+        total_atoms = 0
+
+        # Standard coordinate loss (ligand)
+        if 'ligand_coords' in predictions and predictions['ligand_coords']:
+            ligand_losses = []
+            ligand_atoms = 0
+
+            for batch_id, batch_data in predictions['ligand_coords'].items():
+                if isinstance(batch_data, dict) and 'predictions' in batch_data:
+                    pred_coords = batch_data['predictions']
+                    target_coords = batch_data['targets']
+
+                    if pred_coords.numel() > 0 and target_coords.numel() > 0:
+                        if self.loss_type == "mse":
+                            batch_loss = F.mse_loss(pred_coords, target_coords)
+                        elif self.loss_type == "huber":
+                            batch_loss = F.huber_loss(pred_coords, target_coords, delta=1.0)
+                        else:
+                            batch_loss = F.mse_loss(pred_coords, target_coords)
+
+                        ligand_losses.append(batch_loss)
+                        ligand_atoms += pred_coords.size(0)
+
+            if ligand_losses:
+                ligand_loss = torch.stack(ligand_losses).mean()
+                total_loss += self.ligand_weight * ligand_loss
+                loss_dict['ligand_coord_loss'] = ligand_loss.item()
+
+                # Calculate RMSD for logging
+                ligand_rmsd = ligand_loss.sqrt()
+                loss_dict['ligand_rmsd'] = ligand_rmsd.item()
+
+                # Add ligand distance loss
+                if self.use_distance_loss:
+                    ligand_distance_loss = self.compute_ligand_distance_loss(predictions)
+                    total_loss += self.ligand_distance_weight * ligand_distance_loss
+                    loss_dict['ligand_distance_loss'] = ligand_distance_loss.item()
+
+        # Standard coordinate loss (sidechain)
+        if ('sidechain_predictions' in predictions and
+            'sidechain_targets' in predictions):
+
+            sidechain_losses = []
+            sidechain_atoms = 0
+
+            for batch_id in predictions['sidechain_predictions']:
+                if batch_id not in predictions['sidechain_targets']:
+                    continue
+
+                batch_predictions = predictions['sidechain_predictions'][batch_id]
+                batch_targets = predictions['sidechain_targets'][batch_id]
+
+                for residue_key in batch_predictions:
+                    if residue_key not in batch_targets:
+                        continue
+
+                    residue_predictions = batch_predictions[residue_key]
+                    residue_targets = batch_targets[residue_key]
+
+                    # Only compute loss for atoms that exist in both prediction and target
+                    common_atoms = set(residue_predictions.keys()) & set(residue_targets.keys())
+
+                    for atom_name in common_atoms:
+                        pred_coord = residue_predictions[atom_name]
+                        target_coord = residue_targets[atom_name]
+
+                        if self.loss_type == "mse":
+                            atom_loss = F.mse_loss(pred_coord, target_coord)
+                        elif self.loss_type == "huber":
+                            atom_loss = F.huber_loss(pred_coord, target_coord, delta=1.0)
+                        else:
+                            atom_loss = F.mse_loss(pred_coord, target_coord)
+
+                        sidechain_losses.append(atom_loss)
+                        sidechain_atoms += 1
+
+            if sidechain_losses:
+                sidechain_loss = torch.stack(sidechain_losses).mean()
+                total_loss += self.sidechain_weight * sidechain_loss
+                loss_dict['sidechain_coord_loss'] = sidechain_loss.item()
+
+                # Calculate RMSD for logging
+                rmsd_sum = 0
+                for loss_val in sidechain_losses:
+                    rmsd_sum += loss_val.sqrt()
+                sidechain_rmsd = rmsd_sum / len(sidechain_losses)
+                loss_dict['sidechain_rmsd'] = sidechain_rmsd.item()
+
+                # Add sidechain distance loss
+                if self.use_distance_loss:
+                    sidechain_distance_loss = self.compute_sidechain_distance_loss(predictions)
+                    total_loss += self.sidechain_distance_weight * sidechain_distance_loss
+                    loss_dict['sidechain_distance_loss'] = sidechain_distance_loss.item()
+
+            total_atoms += sidechain_atoms
+
+        loss_dict['total_coord_loss'] = total_loss.item() if torch.is_tensor(total_loss) else total_loss
+        loss_dict['total_atoms_predicted'] = total_atoms
+
+        return total_loss, loss_dict
 
 class CoordinateLoss(nn.Module):
     """
     Simple coordinate-based loss functions for structure prediction.
     Calculates RMSD and distance-based losses between predicted and target coordinates.
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                  loss_type="mse",  # "mse", "rmsd", "huber"
                  ligand_weight=1.0,
                  sidechain_weight=0.5,
@@ -23,80 +317,80 @@ class CoordinateLoss(nn.Module):
         self.ligand_weight = ligand_weight
         self.sidechain_weight = sidechain_weight
         self.delta = delta
-        
-    def forward(self, 
+
+    def forward(self,
                 pred_ligand_coords,       # [B, max_lig_atoms, 3]
                 target_ligand_coords,     # [B, max_lig_atoms, 3]
                 lig_coord_mask,              # [B, max_lig_atoms]
                 pred_sidechain_coords=None,    # [B, N_residues, max_sidechain_atoms, 3]
                 target_sidechain_coords=None,  # [B, N_residues, max_sidechain_atoms, 3]
                 sidechain_mask=None,          # [B, N_residues, max_sidechain_atoms]
-                prot_coord_mask=None):        
-        
+                prot_coord_mask=None):
+
         total_loss = 0.0
         loss_dict = {}
-        
+
         # ===== LIGAND COORDINATE LOSS =====
         if pred_ligand_coords is not None and target_ligand_coords is not None:
             ligand_loss = self._compute_coordinate_loss(
-                pred_ligand_coords, 
-                target_ligand_coords, 
+                pred_ligand_coords,
+                target_ligand_coords,
                 lig_coord_mask,
             )
             total_loss += self.ligand_weight * ligand_loss
             loss_dict['ligand_coord_loss'] = ligand_loss.item()
-            
+
             # Calculate RMSD for logging
             ligand_rmsd = self._compute_rmsd(
-                pred_ligand_coords, 
-                target_ligand_coords, 
+                pred_ligand_coords,
+                target_ligand_coords,
                 lig_coord_mask
             )
             loss_dict['ligand_rmsd'] = ligand_rmsd.item()
-        
+
         # ===== SIDECHAIN COORDINATE LOSS =====
-        if (pred_sidechain_coords is not None and 
-            target_sidechain_coords is not None and 
+        if (pred_sidechain_coords is not None and
+            target_sidechain_coords is not None and
             sidechain_mask is not None):
             combined_mask = prot_coord_mask.unsqueeze(-1) & sidechain_mask  # [B, N_residues, max_sidechain_atoms]
- 
+
             sidechain_loss = self._compute_coordinate_loss(
-                pred_sidechain_coords.view(-1, 3), 
-                target_sidechain_coords.view(-1, 3), 
-                combined_mask.view(-1) 
+                pred_sidechain_coords.view(-1, 3),
+                target_sidechain_coords.view(-1, 3),
+                combined_mask.view(-1)
             )
 
             total_loss += self.sidechain_weight * sidechain_loss
             loss_dict['sidechain_coord_loss'] = sidechain_loss.item()
-            
+
             # Calculate RMSD for logging
             sidechain_rmsd = self._compute_rmsd(
-                pred_sidechain_coords.view(-1, 3), 
-                target_sidechain_coords.view(-1, 3), 
+                pred_sidechain_coords.view(-1, 3),
+                target_sidechain_coords.view(-1, 3),
                 combined_mask.view(-1)
             )
             loss_dict['sidechain_rmsd'] = sidechain_rmsd.item()
-        
+
         loss_dict['total_coord_loss'] = total_loss.item() if torch.is_tensor(total_loss) else total_loss
-        
+
         return total_loss, loss_dict
-    
+
     def _compute_coordinate_loss(self, pred_coords, target_coords, mask):
         """
         Compute coordinate loss with masking.
-        
+
         Args:
             pred_coords: [N, 3] predicted coordinates
-            target_coords: [N, 3] target coordinates  
+            target_coords: [N, 3] target coordinates
             mask: [N] boolean mask for valid coordinates
         """
         if mask.sum() == 0:
             return torch.tensor(0.0, device=pred_coords.device, requires_grad=True)
-        
+
         # Apply mask
         pred_masked = pred_coords[mask]
         target_masked = target_coords[mask]
-        
+
         if self.loss_type == "mse":
             loss = F.mse_loss(pred_masked, target_masked)
         elif self.loss_type == "rmsd":
@@ -105,19 +399,19 @@ class CoordinateLoss(nn.Module):
             loss = F.huber_loss(pred_masked, target_masked, delta=self.delta)
         else:
             raise ValueError(f"Unknown loss type: {self.loss_type}")
-        
+
         return loss
-    
+
     def _compute_rmsd(self, pred_coords, target_coords, mask):
         """Compute RMSD between predicted and target coordinates."""
         if mask.sum() == 0:
             return torch.tensor(0.0, device=pred_coords.device)
-        
+
         pred_masked = pred_coords[mask]
         target_masked = target_coords[mask]
-        
+
         return self._compute_rmsd_raw(pred_masked, target_masked)
-    
+
     def _compute_rmsd_raw(self, pred_coords, target_coords):
         """Raw RMSD computation without masking."""
         squared_diff = (pred_coords - target_coords).pow(2).sum(dim=-1)
@@ -126,17 +420,17 @@ class CoordinateLoss(nn.Module):
 
 class MultiTaskAffinityCoordinateLoss(nn.Module):
     """Combined loss for affinity and coordinate prediction"""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  affinity_loss_fn,           # Your existing affinity loss (e.g., WeightedCategoryLoss_v2)
                  coord_loss_weight=0.1,      # Weight for coordinate loss
                  coord_loss_type="mse",# Type of coordinate loss
-                 lig_internal_dist_w=0.1):     
+                 lig_internal_dist_w=0.1):
         super().__init__()
-        
+
         self.affinity_loss_fn = affinity_loss_fn
         self.coord_loss_weight = coord_loss_weight
-        self.coord_loss_fn = CoordinateLoss(loss_type=coord_loss_type, ligand_weight=0.75, sidechain_weight=0.25) 
+        self.coord_loss_fn = CoordinateLoss(loss_type=coord_loss_type, ligand_weight=0.75, sidechain_weight=0.25)
         if lig_internal_dist_w > 0:
             self.internal_prediction = True
             self.coord_loss = DistanceBasedCoordinateLoss(coord_weight=coord_loss_weight,
@@ -145,11 +439,11 @@ class MultiTaskAffinityCoordinateLoss(nn.Module):
         else:
             self.internal_prediction = False
             self.coord_loss = CoordinateLoss(loss_type=coord_loss_type)
-        
-    def forward(self, pred_affinity, target_affinity, pred_logits=None, 
+
+    def forward(self, pred_affinity, target_affinity, pred_logits=None,
                 pred_lig_coords=None, target_lig_coords=None, lig_coord_mask=None,
                 pred_sidechain_coords=None, target_sidechain_coords=None, sidechain_mask=None, prot_coord_mask=None):
-        
+
         """
         Args:
             pred_affinity: Predicted affinity values
@@ -158,13 +452,13 @@ class MultiTaskAffinityCoordinateLoss(nn.Module):
             pred_coords: [B, max_atoms, 3] predicted coordinates (optional)
             target_coords: [B, max_atoms, 3] ground truth coordinates (optional)
             coord_mask: [B, max_atoms] mask for valid atoms (optional)
-        
+
         Returns:
             total_loss: Combined loss
             loss_dict: Dictionary with individual loss components
         """
         loss_dict = {}
-        
+
         # Affinity loss
         if pred_logits is not None:
             # Multi-task affinity loss (returns multiple components)
@@ -187,11 +481,11 @@ class MultiTaskAffinityCoordinateLoss(nn.Module):
             if isinstance(affinity_result, tuple):
                 total_affinity_loss, reg_loss, ranking_loss, _, _ = affinity_result
                 loss_dict = {'affinity_loss': total_affinity_loss,
-                            'reg_loss': reg_loss, 
+                            'reg_loss': reg_loss,
                             'ranking_loss': ranking_loss}
-        
+
         total_loss = total_affinity_loss
-       
+
         if pred_lig_coords is not None and target_lig_coords is not None and lig_coord_mask is not None:
             coord_loss, coord_loss_dict = self.coord_loss_fn(
                 pred_ligand_coords=pred_lig_coords,
@@ -202,23 +496,22 @@ class MultiTaskAffinityCoordinateLoss(nn.Module):
                 sidechain_mask=sidechain_mask,
                 prot_coord_mask=prot_coord_mask
             )
-            
+
             weighted_coord_loss = self.coord_loss_weight * coord_loss
             total_loss += weighted_coord_loss
-            
+
             # Add coordinate losses to loss dict
             loss_dict.update(coord_loss_dict)
             loss_dict['weighted_coord_loss'] = weighted_coord_loss.item() if torch.is_tensor(weighted_coord_loss) else weighted_coord_loss
-        
+
         loss_dict['total_loss'] = total_loss.item() if torch.is_tensor(total_loss) else total_loss
 
         return total_loss, loss_dict
 
-
 class DistanceBasedCoordinateLoss(nn.Module):
     """Coordinate loss that also considers inter-atomic distances"""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  coord_weight=1.0,
                  distance_weight=0.1,
                  coord_loss_type="mse"):
@@ -226,44 +519,44 @@ class DistanceBasedCoordinateLoss(nn.Module):
         self.coord_weight = coord_weight
         self.distance_weight = distance_weight
         self.coord_loss = CoordinateLoss(loss_type=coord_loss_type)
-        
+
     def forward(self, pred_coords, target_coords, mask):
         """
         Args:
             pred_coords: [B, max_atoms, 3] predicted coordinates
             target_coords: [B, max_atoms, 3] ground truth coordinates
             mask: [B, max_atoms] boolean mask for valid atoms
-        
+
         Returns:
             total_loss: Combined coordinate + distance loss
         """
         # Basic coordinate loss
         coord_loss, rmsd = self.coord_loss(pred_coords, target_coords, mask)
         total_loss = self.coord_weight * coord_loss
-        
+
         # Distance preservation loss (optional)
         if self.distance_weight > 0:
             distance_loss = self._compute_distance_loss(pred_coords, target_coords, mask)
             total_loss += self.distance_weight * distance_loss
-        
+
         return rmsd, coord_loss, total_loss
-    
+
     def _compute_distance_loss(self, pred_coords, target_coords, mask):
         """Compute loss on pairwise distances between atoms"""
         batch_size, max_atoms, _ = pred_coords.shape
         total_distance_loss = 0.0
         valid_batches = 0
-        
+
         for b in range(batch_size):
             # Get valid atoms for this sample
             valid_mask = mask[b]  # [max_atoms]
             num_valid = valid_mask.sum().item()
             if num_valid <= 1:
                 continue  # Need at least 2 atoms for distances
-            
+
             pred_valid = pred_coords[b][valid_mask]      # [num_valid, 3]
             target_valid = target_coords[b][valid_mask]  # [num_valid, 3]
-            
+
             # Compute pairwise distances
             pred_distances = torch.cdist(pred_valid, pred_valid, p=2)      # [num_valid, num_valid]
             target_distances = torch.cdist(target_valid, target_valid, p=2) # [num_valid, num_valid]
@@ -272,54 +565,12 @@ class DistanceBasedCoordinateLoss(nn.Module):
             if triu_mask.any():
                 distance_diff = (pred_distances[triu_mask] - target_distances[triu_mask]) ** 2
                 # print (distance_diff)
-                # print ('dist diff',distance_diff.shape) 
+                # print ('dist diff',distance_diff.shape)
                 total_distance_loss += distance_diff.mean()
                 valid_batches += 1
-        
+
         return total_distance_loss / max(valid_batches, 1)
-    
-class AffHuberLoss(nn.Module):
-    def __init__(self,
-                 delta=1.0,                    # Huber threshold
-                 extreme_weight=2.0,           # Boost for extremes
-                 ranking_weight=0.1,           # Preserve correlations
-                 **kwargs):                    # Absorb unused parameters
-        super().__init__()
-        self.delta = delta
-        self.extreme_weight = extreme_weight
-        self.ranking_weight = ranking_weight
-        
-    def forward(self, pred_aff, target_aff, pred_logits=None):
-        # Main Huber loss
-        huber_base = F.smooth_l1_loss(pred_aff, target_aff, beta=self.delta, reduction='none')
-        
-        # Extreme value emphasis
-        extreme_mask = (target_aff < 4.5) | (target_aff > 8.5)
-        weights = torch.ones_like(target_aff)
-        weights[extreme_mask] = self.extreme_weight
-        
-        weighted_huber = (huber_base * weights).mean()
-        
-        # Ranking preservation
-        ranking_loss = torch.tensor(0.0, device=pred_aff.device)
-        # if self.ranking_weight > 0 and len(pred_aff) > 1:
-        #     pred_centered = pred_aff - pred_aff.mean()
-        #     target_centered = target_aff - target_aff.mean()
-        #     correlation = (pred_centered * target_centered).sum() / (
-        #         torch.sqrt((pred_centered ** 2).sum() * (target_centered ** 2).sum()) + 1e-8
-        #     )
-        #     ranking_loss = 1.0 - correlation
-        if self.ranking_weight > 0 and pred_aff.numel() > 1:  # Use .numel() instead of len()
-            pred_centered = pred_aff - pred_aff.mean()
-            target_centered = target_aff - target_aff.mean()
-            correlation = (pred_centered * target_centered).sum() / (
-                torch.sqrt((pred_centered ** 2).sum() * (target_centered ** 2).sum()) + 1e-8
-            )
-            ranking_loss = 1.0 - correlation 
-        total_loss = weighted_huber + self.ranking_weight * ranking_loss
-        # Return same format as your original loss for compatibility
-        return (total_loss, weighted_huber, ranking_loss, 
-                torch.tensor(0.0), torch.tensor(0.0))
+
 
 class WeightedCategoryLoss_v2(nn.Module):
     def __init__(self,
@@ -419,19 +670,19 @@ class RankingMSELoss(nn.Module):
         self.ranking_weight = ranking_weight
         self.margin = margin
         self.mse_loss = nn.MSELoss()
-        
+
     def forward(self, pred, target):
         # Standard MSE loss
         mse_loss = self.mse_loss(pred, target)
-        
+
         # Pairwise ranking loss
         n = pred.size(0)
         if n < 2:
             return mse_loss
-        
+
         ranking_loss = 0.0
         count = 0
-        
+
         # Compare all pairs
         for i in range(n):
             for j in range(i+1, n):
@@ -445,15 +696,15 @@ class RankingMSELoss(nn.Module):
                 else:
                     # Equal targets, minimize difference
                     loss = torch.abs(pred[i] - pred[j])
-                
+
                 ranking_loss += loss
                 count += 1
-        
+
         if count > 0:
             ranking_loss = ranking_loss / count
-        
+
         total_loss = self.mse_weight * mse_loss + self.ranking_weight * ranking_loss
-        
+
         return total_loss
 
 
@@ -467,7 +718,7 @@ class AdaptiveHuberLoss(nn.Module):
         self.delta = delta
         self.adaptive = adaptive
         self.quantiles = quantiles
-        
+
     def forward(self, pred, target):
         # Adaptively set delta based on target distribution
         if self.adaptive and target.numel() > 10:
@@ -479,18 +730,18 @@ class AdaptiveHuberLoss(nn.Module):
             delta = max(iqr * 0.5, 0.5)  # At least 0.5
         else:
             delta = self.delta
-        
+
         # Compute Huber loss
         residual = torch.abs(pred - target)
         mask = residual <= delta
-        
+
         # L2 loss for small residuals, L1 for large
         loss = torch.where(
             mask,
             0.5 * residual ** 2,
             delta * (residual - 0.5 * delta)
         )
-        
+
         return loss.mean()
 
 
@@ -502,24 +753,24 @@ class FocalMSELoss(nn.Module):
         super().__init__()
         self.gamma = gamma
         self.alpha = alpha
-        
+
     def forward(self, pred, target):
         # Compute squared error
         se = (pred - target) ** 2
-        
+
         # Normalize errors to [0, 1] range for focal weighting
         max_error = se.max().detach()
         if max_error > 0:
             normalized_error = se / max_error
         else:
             normalized_error = se
-        
+
         # Focal weight: higher weight for larger errors
         focal_weight = self.alpha * (normalized_error ** self.gamma)
-        
+
         # Weighted loss
         loss = focal_weight * se
-        
+
         return loss.mean()
 
 
@@ -532,25 +783,25 @@ class MultiTaskAffinityLoss(nn.Module):
         self.num_classes = num_classes
         self.class_weight = class_weight
         self.reg_weight = reg_weight
-        
+
         # Define bins for ordinal classification based on your data range
         self.min_affinity = 2.0
         self.max_affinity = 15.5
         self.bin_width = (self.max_affinity - self.min_affinity) / num_classes
-        
+
         self.mse_loss = nn.MSELoss()
-        
+
     def affinity_to_class(self, affinity):
         """Convert continuous affinity to class index"""
         # Clip values to valid range
         affinity = torch.clamp(affinity, self.min_affinity, self.max_affinity)
-        
+
         # Convert to class
         class_idx = ((affinity - self.min_affinity) / self.bin_width).long()
         class_idx = torch.clamp(class_idx, 0, self.num_classes - 1)
-        
+
         return class_idx
-    
+
     def forward(self, pred_affinity, pred_logits, target_affinity):
         """
         Args:
@@ -560,34 +811,34 @@ class MultiTaskAffinityLoss(nn.Module):
         """
         # Regression loss
         reg_loss = self.mse_loss(pred_affinity, target_affinity)
-        
+
         # Classification loss
         target_classes = self.affinity_to_class(target_affinity)
-        
+
         # Use ordinal cross-entropy (considers ordering)
         # Create soft labels that acknowledge nearby classes
         soft_labels = torch.zeros(target_classes.size(0), self.num_classes, device=target_classes.device)
-        
+
         for i in range(len(target_classes)):
             class_idx = target_classes[i]
             soft_labels[i, class_idx] = 0.7  # Main class
-            
+
             # Adjacent classes get some weight
             if class_idx > 0:
                 soft_labels[i, class_idx - 1] = 0.15
             if class_idx < self.num_classes - 1:
                 soft_labels[i, class_idx + 1] = 0.15
-        
+
         # Ensure probabilities sum to 1
         soft_labels = soft_labels / soft_labels.sum(dim=1, keepdim=True)
-        
+
         # Cross entropy with soft labels
         log_probs = F.log_softmax(pred_logits, dim=1)
         class_loss = -(soft_labels * log_probs).sum(dim=1).mean()
-        
+
         # Combined loss
         total_loss = self.reg_weight * reg_loss + self.class_weight * class_loss
-        
+
         return total_loss, reg_loss, class_loss
 
 
@@ -597,13 +848,13 @@ def compute_affinity_statistics(dataloader):
     Compute statistics of affinity distribution for better loss design
     """
     all_affinities = []
-    
+
     for batch in dataloader:
         affinities = batch['affinity'].cpu().numpy()
         all_affinities.extend(affinities)
-    
+
     all_affinities = np.array(all_affinities)
-    
+
     stats = {
         'mean': np.mean(all_affinities),
         'std': np.std(all_affinities),
@@ -612,11 +863,11 @@ def compute_affinity_statistics(dataloader):
         'quantiles': np.percentile(all_affinities, [0, 10, 25, 50, 75, 90, 100]),
         'histogram': np.histogram(all_affinities, bins=20)
     }
-    
+
     # Compute category frequencies for weighted loss
     thresholds = [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0]
     category_counts = []
-    
+
     for i in range(len(thresholds) + 1):
         if i == 0:
             count = np.sum(all_affinities < thresholds[0])
@@ -625,18 +876,18 @@ def compute_affinity_statistics(dataloader):
         else:
             count = np.sum((all_affinities >= thresholds[i-1]) & (all_affinities < thresholds[i]))
         category_counts.append(count)
-    
+
     # Compute inverse frequency weights
     total_samples = len(all_affinities)
     category_weights = [total_samples / (count + 1) for count in category_counts]
-    
+
     # Normalize weights
     min_weight = min(category_weights)
     category_weights = [w / min_weight for w in category_weights]  # Normalize to min=1.0
-    
+
     stats['category_counts'] = category_counts
     stats['category_weights'] = category_weights
-    
+
     return stats
 
 
@@ -648,23 +899,23 @@ def get_balanced_sampler(dataset, batch_size=32):
     affinities = []
     for i in range(len(dataset)):
         affinities.append(dataset[i]['affinity'].item())
-    
+
     affinities = np.array(affinities)
     thresholds = [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0]
-    
+
     # Assign categories
     categories = np.searchsorted(thresholds, affinities)
-    
+
     # Compute weights for each sample
     category_counts = np.bincount(categories)
     weights = 1.0 / category_counts[categories]
     weights = weights / weights.sum()
-    
+
     # Create sampler
     sampler = torch.utils.data.WeightedRandomSampler(
         weights=torch.from_numpy(weights),
         num_samples=len(dataset),
         replacement=True
     )
-    
+
     return sampler
