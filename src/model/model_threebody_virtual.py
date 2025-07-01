@@ -103,7 +103,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 self.structure_predictor = EGNNStructModule(
                     lig_embed_dim=ligand_hidden_dims[0],
                     prot_embed_dim=embed_dim,
-                    hidden_dim=128,
+                    hidden_dim=embed_dim,
                     num_layers=3,
                     dropout=dropout
                 )
@@ -111,7 +111,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 self.structure_predictor = MLPStructModule(
                     lig_embed_dim=ligand_hidden_dims[0],
                     prot_embed_dim=embed_dim,
-                    hidden_dim=128
+                    hidden_dim=embed_dim,
                 )
             # process feature from structure module using MLP
             self.str_feature_mlp = nn.Sequential(
@@ -462,7 +462,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
             str_loss, str_loss_dict = self.str_loss_fn(results)
 
             weighted_str_loss = self.str_loss_weight * str_loss
-            total_loss += weighted_str_loss
+            total_loss = total_loss +  weighted_str_loss
 
             # Add coordinate losses to loss dict
             loss_dict.update(str_loss_dict)
