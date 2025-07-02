@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import math
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import softmax
-from torch_scatter import scatter
 
 
 class EGNNConv(MessagePassing):

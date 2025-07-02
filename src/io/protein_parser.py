@@ -1,5 +1,4 @@
 import numpy as np
-import sys
 import src.data.featurizers.const as const 
 from pathlib import Path
 

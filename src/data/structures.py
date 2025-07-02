@@ -44,26 +44,26 @@ class Residue:
         if atom.name == 'CA':
             self.ca_atom = atom
 
-    def get_atom(self, atom_name_query): 
+    def atom(self, atom_name_query): 
         for atom in self.atoms:
             if atom.name == atom_name_query:
                 return atom
         return None
 
-    def get_ca(self):
+    def ca(self):
         for atom in self.atoms:
             if atom.name == 'CA':
                 self.ca_atom = atom
                 return atom
         return None
     
-    def get_cb(self):
+    def cb(self):
         for atom in self.atoms:
             if atom.name == 'CB':
                 return atom
         return None
 
-    def get_coordinates(self):
+    def coordinates(self):
         """Get the coordinates of all atoms in the residue."""
         return np.array([atom.coordinates for atom in self.atoms])
 
@@ -127,42 +127,45 @@ class Protein:
                 residue.is_ligand = True
             self.residues.append(residue)
 
-    def get_coordinates(self):
+    def all_coordinates(self):
         """Get the coordinates of all atoms in the protein."""
-        xyz = [np.array(self.residues[i].get_coordinates(), dtype=np.float32) for i in range(len(self.residues))]
+        xyz = [np.array(self.residues[i].coordinates(), dtype=np.float32) for i in range(len(self.residues))]
         xyz = np.concatenate(xyz)
         return xyz
     
-    def get_ncaco_coordinates(self):
+    def ncaco_coordinates(self):
         """Get the coordinates of N, CA, C, O atoms in the protein."""
         ncaco_coords = []
         for residue in self.residues:
             if residue.is_water or (self.excl_aa_types and residue.res_name in self.excl_aa_types):
                 continue
-            n_atom = residue.get_atom('N')
-            ca_atom = residue.get_ca()
-            c_atom = residue.get_atom('C')
-            o_atom = residue.get_atom('O')
+            n_atom = residue.atom('N')
+            ca_atom = residue.ca()
+            c_atom = residue.atom('C')
+            o_atom = residue.atom('O')
             for atom in [n_atom, ca_atom, c_atom, o_atom]:
                 if atom is not None:
                     ncaco_coords.append(atom.coordinates)
 
         return np.stack(ncaco_coords)
     
-    def get_ca_coordinates(self):
+    def ca_coordinates(self):
         """Get the coordinates of CA atoms in the protein."""
         ca_coords = []
         for residue in self.residues:
             if residue.is_water or (self.excl_aa_types and residue.res_name in self.excl_aa_types):
                 continue
-            ca_atom = residue.get_ca()
+            ca_atom = residue.ca()
             if ca_atom is not None:
                 ca_coords.append(ca_atom.coordinates)
         return (ca_coords)
      
-    def get_sidechain_info(self): 
-        sidechain_info = {} 
+    def sidechain_map(self): 
+        residue_processed = set()  
+        sidechain_map = {} 
         for residue in self.residues:
+            if str(residue) in residue_processed:  
+                continue
             sidechain_coords = {} 
             if residue.is_water or (self.excl_aa_types and residue.res_name in self.excl_aa_types):
                 continue
@@ -170,10 +173,11 @@ class Protein:
                 if atom.name in ['N', 'CA', 'C', 'O']:
                     continue
                 sidechain_coords[atom.name] = atom.coordinates
-            sidechain_info[str(residue)] = sidechain_coords
-        return sidechain_info
+            residue_processed.add(str(residue)) 
+            sidechain_map[residue] = sidechain_coords
+        return sidechain_map
  
-    def get_water_coordinates(self):
+    def water_coordinates(self):
         """Get the coordinates of water molecules in the protein."""
         water_coords = []
         for residue in self.residues:
@@ -205,11 +209,11 @@ class Ligand:
             atom2 = self.atoms[bond[1]]
             self.bonds.append((atom1, atom2, border))
     
-    def get_coordinates(self):
+    def coordinates(self):
         """Get the coordinates of all atoms in the ligand."""
         return np.array([atom.coordinates for atom in self.atoms])
     
-    def get_atom_elements(self):
+    def atom_elements(self):
         """Get a list of all atoms in the ligand."""
         return np.array([atom.element for atom in self.atoms])
 
@@ -295,5 +299,5 @@ if __name__ == '__main__':
     mol2_file = '/home/j2ho/DB/pdbbind/v2020-refined/5hz8/5hz8_ligand.mol2'
     protein = Protein(pdb_filepath=pdb_file, read_water=True)
     ligand = Ligand(mol2_filepath=mol2_file)
-    xyzs = protein.get_coordinates()
+    xyzs = protein.all_coordinates()
     print ("Protein Coordinates:", xyzs)

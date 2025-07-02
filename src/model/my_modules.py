@@ -92,6 +92,22 @@ class MLPCoordinatePredictor_SidechainMap(nn.Module):
         self.sidechain_atom_types = ['C', 'N', 'O', 'S', 'P', 'UNK']
         self.sidechain_atom_embedding = nn.Embedding(len(self.sidechain_atom_types), 32)
 
+    def _compute_batch_context(self, features, batch_idx):
+        """
+        Compute per-batch context by averaging features within each batch.
+        """
+        if features.size(0) == 0:
+            return torch.empty(0, self.hidden_dim, device=features.device)
+        batch_context = []
+        for batch_id in torch.unique(batch_idx):
+            batch_mask = batch_idx == batch_id
+            batch_features = features[batch_mask]   
+            # Average features within the batch
+            context = batch_features.mean(dim=0)
+            batch_context.extend([context] * batch_mask.sum().item())
+        
+        return torch.stack(batch_context)
+
     def _create_sidechain_nodes_from_map(self, protein_embeddings, protein_batch_idx,
                                        backbone_coords, sidechain_maps):
         """
@@ -281,21 +297,7 @@ class MLPCoordinatePredictor_SidechainMap(nn.Module):
             enhanced_sidechain_features = sidechain_features
             
         return enhanced_ligand_features, enhanced_sidechain_features
-        """
-        Compute per-batch context by averaging features within each batch.
-        """
-        if features.size(0) == 0:
-            return torch.empty(0, self.hidden_dim, device=features.device)
-        
-        batch_context = []
-        for batch_id in torch.unique(batch_idx):
-            batch_mask = batch_idx == batch_id
-            batch_features = features[batch_mask]
-            # Average features within the batch
-            context = batch_features.mean(dim=0)
-            batch_context.extend([context] * batch_mask.sum().item())
-        
-        return torch.stack(batch_context)
+
 
     def forward(self,
                 ligand_embeddings,      # [N_ligand, embed_dim]

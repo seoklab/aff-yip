@@ -1,11 +1,8 @@
 
-import os
-import sys
+
 import torch
-import json
-import torch, math
+import math
 import torch.nn.functional as F
-import torch_cluster
 
 import numpy as np
 import scipy 
@@ -14,7 +11,7 @@ from scipy.sparse.csgraph import connected_components
 
 from src.data.structures import Protein, Ligand, VirtualNode, Residue
 
-from src.data.featurizers.const import AA_to_tip, AMINOACID, METAL, NUCLEICACID
+from src.data.featurizers.const import AMINOACID
 
 aa_to_idx = {aa: i for i, aa in enumerate(AMINOACID)}
 
@@ -25,7 +22,7 @@ def one_hot_encode_aminoacid(res_name):
         vec[idx] = 1.0
     return vec
 
-def get_aa_one_hot(protein:Protein) -> torch.Tensor:
+def aa_one_hot(protein:Protein) -> torch.Tensor:
     """
     Returns a tensor of shape (num_residues, num_amino_acids) with one-hot encoding
     for each residue's amino acid type.
@@ -40,18 +37,18 @@ def get_aa_one_hot(protein:Protein) -> torch.Tensor:
 
     return aa_one_hot
 
-def get_water_embeddings(X_water, num_embeddings=16):
+def water_embeddings(X_water, num_embeddings=16):
     # now just random embeddings
     if X_water.size(0) == 0:
         return torch.empty((0, num_embeddings), dtype=torch.float32)
     return torch.rand(X_water.size(0), num_embeddings, dtype=torch.float32)
 
-def get_rbf(D, D_min=0, D_max=20, D_count=16, device=None):
+def rbf(D, D_min=0, D_max=20, D_count=16, device=None):
     D_mu = torch.linspace(D_min, D_max, D_count).to(device)
     D_sigma = (D_max - D_min) / D_count
     return torch.exp(-((D.unsqueeze(-1) - D_mu)**2) / (2 * D_sigma**2))
 
-def get_positional_embeddings(edge_index, num_embeddings=None):
+def positional_embeddings(edge_index, num_embeddings=None):
     d = edge_index[0] - edge_index[1]  # or dst - src depending on convention
 
     freqs = torch.exp(
@@ -61,19 +58,7 @@ def get_positional_embeddings(edge_index, num_embeddings=None):
     angles = d.unsqueeze(-1) * freqs
     return torch.cat([torch.sin(angles), torch.cos(angles)], dim=-1)
 
-def get_sidechain_info(residue_s: list[Residue]): 
-    sidechain_info = {} 
-    for residue in residue_s:
-        sidechain_coords = {} 
-        for atom in residue.atoms:
-            if atom.name in ['N', 'CA', 'C', 'O']:
-                continue
-            sidechain_coords[atom.name] = atom.coordinates
-        sidechain_info[str(residue)] = sidechain_coords
-    # print (f"Number of residues in residue_s: {len(residue_s)}")
-    # print (f"Number of residues with sidechain info: {len(sidechain_info)}")
-    return sidechain_info
- 
+
 def stack_bb_coordinates(protein_obj: Protein) -> torch.Tensor:
     num_residues = len(protein_obj.residues)
     protein_coords_list = []
@@ -85,9 +70,9 @@ def stack_bb_coordinates(protein_obj: Protein) -> torch.Tensor:
         if residue.is_ligand:
             num_residues -= 1 # Skip water or ligand residues
             continue
-        n_atom = residue.get_atom("N")
-        ca_atom = residue.get_atom("CA") # or residue.ca_atom if already populated
-        c_atom = residue.get_atom("C")
+        n_atom = residue.atom("N")
+        ca_atom = residue.atom("CA") # or residue.ca_atom if already populated
+        c_atom = residue.atom("C")
 
         if not (n_atom and ca_atom and c_atom):
             raise ValueError(
@@ -115,7 +100,7 @@ def stack_water_coordinates(protein_obj: Protein) -> torch.Tensor:
     for residue in protein_obj.residues:
         if not residue.is_water:
             continue
-        o_atom = residue.get_atom("O")
+        o_atom = residue.atom("O")
 
         water_coords_list.append(torch.tensor(o_atom.coordinates, dtype=torch.float32))
     if len(water_coords_list) == 0:
@@ -125,7 +110,7 @@ def stack_water_coordinates(protein_obj: Protein) -> torch.Tensor:
     return X_water_flat 
 
 
-def get_residue_dihedrals(X, eps: float = 1e-7) -> torch.Tensor: 
+def residue_dihedrals(X, eps: float = 1e-7) -> torch.Tensor: 
     # Originally from https://github.com/jingraham/neurips19-graph-protein-design
     # Adapted version from https://github.com/drorlab/gvp
     """
@@ -172,7 +157,7 @@ def _normalize_torch(vector: torch.Tensor, dim: int = -1) -> torch.Tensor:
     return torch.nan_to_num(
         torch.div(vector, torch.norm(vector, dim=dim, keepdim=True)))
 
-def get_sidechain_orientation(X) -> np.ndarray:
+def sidechain_orientation(X) -> np.ndarray:
     """
     Calculates an idealized sidechain orientation vector from backbone N, CA, C coordinates.
     The formula is `vec = -bisector * sqrt(1/3) - perp * sqrt(2/3)`, often used
@@ -221,7 +206,7 @@ def get_sidechain_orientation(X) -> np.ndarray:
     return vec
 
 
-def get_backbone_orientation(X):
+def backbone_orientation(X):
     X_ca = X[1::3, :] # Shape: (num_residues, 3)
     
     # --- Calculate vectors pointing FORWARD: C_alpha(i) -> C_alpha(i+1) ---
@@ -263,7 +248,7 @@ class GridOption:
         self.shellsize= shellsize # throw if no contact within this distance
 
 
-def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
+def pocket_virtual_nodes(receptor:Protein,ligand:Ligand,
                         only_backbone=False,
                         opt=None,
                         gridout=None):
@@ -271,11 +256,11 @@ def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
         opt = GridOption(padding=5.0, gridsize=1.0, option='ligand', clash=1.8, shellsize=6.0)
     if only_backbone: 
         # xyzs_rec = stack_residue_coordinates(receptor)
-        xyzs_rec = receptor.get_ncaco_coordinates() 
+        xyzs_rec = receptor.ncaco_coordinates() 
     else: 
-        xyzs_rec = receptor.get_coordinates()
+        xyzs_rec = receptor.all_coordinates()
 
-    xyzs_lig = ligand.get_coordinates()
+    xyzs_lig = ligand.coordinates()
 
     if opt.option == 'ligand':
         bmin = np.min(xyzs_lig[:,:]-opt.padding,axis=0)
@@ -296,7 +281,6 @@ def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
                 grids.append(grid)
 
     grids = np.array(grids)
-    nfull = len(grids)
 
     # Remove clashing or far-off grids
     kd      = scipy.spatial.cKDTree(grids)
@@ -314,7 +298,6 @@ def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
         interface = np.unique(np.array([i for i in incl if (i not in excl)],dtype=np.int16))
         grids = grids[interface]
 
-    n1 = len(grids)
     D = scipy.spatial.distance_matrix(grids,grids)
     graph = csr_matrix((D<(opt.gridsize+0.1)).astype(int))
     n, labels = connected_components(csgraph=graph, directed=False, return_labels=True)
@@ -324,7 +307,6 @@ def generate_virtual_nodes(receptor:Protein,ligand:Ligand,
     grids = grids[biggest]
 
     virtual_nodes = [VirtualNode(coord) for coord in grids]
-    # print("Search through %d grid points, of %d contact grids %d clash -> %d, remove outlier -> %d"%(nfull,len(incl),len(excl),n1,len(grids)))
 
     if gridout is not None:
         for i,grid in enumerate(grids):
@@ -339,50 +321,3 @@ if __name__ == '__main__':
 
     protein = Protein(pdb_filepath=pdb_file, read_water=True, read_ligand=False)
     ligand = Ligand(mol2_filepath=mol2_file)
-
-    X = stack_residue_coordinates(protein)
-    X_water = stack_water_coordinates(protein)
-    #   X: A tensor of shape (num_residues * 3, 3). stacked N, CA, C coord for each residue.
-    X_ca = X[1::3, :]
-    X_all = torch.cat([X_ca, X_water], dim=0)  # (num_residues + num_water, 3)
-    node_type = torch.cat([torch.zeros(X_ca.size(0)), torch.ones(X_water.size(0))]).long()  # 0: protein, 1: water
-    # Node scalar feature
-    node_s = get_residue_dihedrals(X) # (num_residues, 6)
-    node_s_water = torch.rand(X_water.size(0), node_s.size(1))  # or meaningful feature like position norm, etc.
-    node_s_all = torch.cat([node_s_protein, node_s_water], dim=0)
-    print(f"Node scalar feature shape: {node_s.shape}")  # (num_residues, 6)
-    # Node Vector Feature
-    sidechain_orientation = get_sidechain_orientation(X) #(num_residues, 3)
-    sidechain_orientation = sidechain_orientation.unsqueeze(-2) # (num_residues, 1, 3)
-    backbone_orientation = get_backbone_orientation(X)  #(num_residues, 2, 3)
-    node_v = torch.cat([sidechain_orientation, backbone_orientation], dim=-2) # (num_residues, 3, 3)
-    node_v_water = torch.zeros(X_water.size(0), 3, 3) # future = dipole ... 
-    node_v_all = torch.cat([node_v_protein, node_v_water], dim=0)
-    # node_v[i, 0, :]: Forward backbone direction.
-    # node_v[i, 1, :]: Backward backbone direction.
-    # node_v[i, 2, :]: Idealized sidechain direction.
-    print (f"Node vector feature shape: {node_v.shape}")  # (num_residues, 3, 3)
-    # Edge vector feature
-    edge_index = torch_cluster.knn_graph(X_ca, k=30) 
-    edge_index_all = torch_cluster.knn_graph(X_all, k=top_k)
-    E_vectors = X_ca[edge_index[0]] - X_ca[edge_index[1]]
-    E_vectors_all = X_all[edge_index[0]] - X_all[edge_index[1]]
-
-    edge_v = E_vectors.unsqueeze(-2)  # (num_edges, 1, 3)
-    edge_v = _normalize_torch(E_vectors)  # (num_edges, 3) # The unit vector in the direction of Cαj−Cαi.
-    edge_v_all = E_vectors_all.unsqueeze(-2)  # (num_edges, 1, 3)
-    edge_v_all = _normalize_torch(E_vectors_all)  # (num_edges, 3) 
-
-    # Edge scalar feature
-    # The encoding of the distance ||Cαj−Cαi||2 in terms of Gaussian radial basis functions.
-    edge_dist = E_vectors.norm(dim=-1)
-    rbf = get_rbf(edge_dist, D_count=16, device=edge_index.device)  # (num_edges, 16)
-    edge_dist_all = E_vectors_all.norm(dim=-1)
-    rbf_all = get_rbf(edge_dist_all, D_count=16, device=edge_index_all.device)  # (num_edges, 16)
-    pos_embeddings = get_positional_embeddings(edge_index, num_embeddings=16)  # (num_edges, 16)
-    pos_embeddings_all = get_positional_embeddings(edge_index_all, num_embeddings=16)  # (num_edges, 16)
-    edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
-    edge_s_all = torch.cat([rbf_all, pos_embeddings_all], dim=-1)
-    print (f"Edge vector feature shape: {edge_v.shape}")  # (num_edges, 3)
-    print (f"Edge scalar feature shape: {edge_s.shape}")  # (num_edges, 32) 
-    

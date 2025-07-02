@@ -123,7 +123,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
         # Main regression head
         if predict_str:
-            embed_dim *= 2
+            embed_dim = embed_dim * 2
         self.regressor = nn.Sequential(
             nn.Linear(embed_dim, embed_dim),
             nn.ReLU(),
@@ -182,10 +182,10 @@ class AFFModel_ThreeBody(pl.LightningModule):
             self.str_loss_fn = StrLoss(
                 loss_type="mse",
                 ligand_weight=1,
-                sidechain_weight=0.3,
+                sidechain_weight=1,
                 use_distance_loss=True,
                 ligand_distance_weight=0.3,
-                sidechain_distance_weight=0,
+                sidechain_distance_weight=0.1,
                 distance_loss_type="mse",
                 distance_cutoff=5.0
             )
@@ -408,6 +408,14 @@ class AFFModel_ThreeBody(pl.LightningModule):
             lig_h = h_dict['ligand_features'].get(batch_id.item(), None)
             protein_h = h_dict['protein_features'].get(batch_id.item(), None)
             sidechain_h = h_dict['sidechain_features'].get(batch_id.item(), None)
+            # Handle missing features - None as zero 
+            if lig_h is None:
+                lig_h = torch.zeros(1, self.hparams.ligand_hidden_dims[0], device=self.device)
+            if protein_h is None:
+                protein_h = torch.zeros(1, self.hparams.protein_hidden_dims[0], device=self.device)
+            if sidechain_h is None:
+                sidechain_h = torch.zeros(1, self.hparams.protein_hidden_dims[0], device=self.device)
+
             lig_h = lig_h.mean(dim=0, keepdim=True)
             protein_h = protein_h.mean(dim=0, keepdim=True)
             sidechain_h = sidechain_h.mean(dim=0, keepdim=True)
