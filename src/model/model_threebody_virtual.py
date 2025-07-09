@@ -27,13 +27,21 @@ class AFFModel_ThreeBody(pl.LightningModule):
                  num_gvp_layers=3,
                  dropout=0.1,
                  lr=1e-3,
+                 weight_decay=0.01,
                  interaction_mode="hierarchical",
                  predict_str=False,
                  str_model_type="egnn", #"mlp",  # "mlp" or "egnn"
                  str_loss_weight=0.3,
                  str_loss_params=None,
                  loss_type="single",  # single: no classification head
-                 loss_params=None):
+                 loss_params=None,
+                 # Loss scheduling parameters
+                 use_loss_scheduling=True,
+                 str_warmup_epochs=15,
+                 aff_warmup_epochs=25,
+                 str_max_weight=1.0,
+                 aff_max_weight=2.0,
+                 aff_min_weight=1.0):
         super().__init__()
         self.save_hyperparameters()
 
@@ -99,6 +107,22 @@ class AFFModel_ThreeBody(pl.LightningModule):
         # Structure Prediction Setups
         if predict_str:
             self.str_loss_weight = str_loss_weight
+
+        # Loss scheduling setup
+        self.use_loss_scheduling = use_loss_scheduling
+        self.str_warmup_epochs = str_warmup_epochs
+        self.aff_warmup_epochs = aff_warmup_epochs
+        self.str_max_weight = str_max_weight
+        self.aff_max_weight = aff_max_weight
+        self.aff_min_weight = aff_min_weight
+        
+        # Track loss magnitudes for auto-balancing
+        self.loss_magnitude_history = {
+            'affinity': [],
+            'structure': []
+        }
+
+        if predict_str:
             if self.str_model_type == "egnn":
                 self.structure_predictor = EGNNStructModule(
                     lig_embed_dim=ligand_hidden_dims[0],
@@ -408,7 +432,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
             lig_h = h_dict['ligand_features'].get(batch_id.item(), None)
             protein_h = h_dict['protein_features'].get(batch_id.item(), None)
             sidechain_h = h_dict['sidechain_features'].get(batch_id.item(), None)
-            # Handle missing features - None as zero 
+            # Handle missing features - None as zero
             if lig_h is None:
                 lig_h = torch.zeros(1, self.hparams.ligand_hidden_dims[0], device=self.device)
             if protein_h is None:
@@ -427,13 +451,62 @@ class AFFModel_ThreeBody(pl.LightningModule):
         return result, h
 
     # ========================================
+    # LOSS SCHEDULING METHODS
+    # ========================================
+
+    def get_loss_weights(self, epoch):
+        """Dynamic loss weight scheduling based on training progress"""
+        if not self.use_loss_scheduling:
+            return 1.0, self.str_loss_weight if self.predict_str else 0.0
+
+        # Structure loss: start high, gradually decrease
+        if epoch < self.str_warmup_epochs:
+            str_weight = self.str_max_weight
+        else:
+            # Gradually decrease structure weight
+            decay_progress = (epoch - self.str_warmup_epochs) / max(1, self.aff_warmup_epochs - self.str_warmup_epochs)
+            str_weight = self.str_max_weight * (1 - min(1.0, decay_progress) * 0.8)  # Reduce to 20% of max
+
+        # Affinity loss: start low, gradually increase
+        if epoch < 5:  # Very early epochs: low affinity weight
+            aff_weight = self.aff_min_weight
+        elif epoch < self.aff_warmup_epochs:
+            # Gradually increase affinity weight
+            progress = (epoch - 5) / max(1, self.aff_warmup_epochs - 5)
+            aff_weight = 0.1 + (self.aff_max_weight - 0.1) * progress
+        else:
+            aff_weight = self.aff_max_weight
+
+        return aff_weight, str_weight
+
+    def get_adaptive_loss_weights(self, affinity_loss_mag, structure_loss_mag):
+        """Adaptive loss balancing based on loss magnitudes"""
+        if len(self.loss_magnitude_history['affinity']) < 3:
+            return 1.0, 1.0  # Use default weights initially
+
+        # Calculate running averages
+        avg_aff_loss = sum(self.loss_magnitude_history['affinity'][-5:]) / len(self.loss_magnitude_history['affinity'][-5:])
+        avg_str_loss = sum(self.loss_magnitude_history['structure'][-5:]) / len(self.loss_magnitude_history['structure'][-5:])
+
+        # Balance based on magnitudes (prevent one loss from dominating)
+        if avg_str_loss > 0:
+            balance_factor = avg_aff_loss / avg_str_loss
+            str_adaptive_weight = min(2.0, max(0.5, balance_factor))
+        else:
+            str_adaptive_weight = 1.0
+
+        return 1.0, str_adaptive_weight
+
+    # ========================================
     # LOSS COMPUTATION AND TRAINING STEPS
     # ========================================
 
     def _compute_loss(self, results):
-        """Separate affinity and coordinate losses - much cleaner!"""
+        """Separate affinity and coordinate losses with dynamic scheduling"""
         loss_dict = {}
 
+        # Get dynamic loss weights based on current epoch
+        aff_weight, str_weight = self.get_loss_weights(self.current_epoch)
         # ===== AFFINITY LOSS (unchanged) =====
         if self.loss_type == "multitask":
             affinity_result = self.aff_loss_fn(
@@ -462,19 +535,45 @@ class AFFModel_ThreeBody(pl.LightningModule):
                     'ranking_loss': ranking_loss
                 })
 
-        total_loss = total_affinity_loss
+        # Store loss magnitude for adaptive weighting
+        self.loss_magnitude_history['affinity'].append(total_affinity_loss.item())
+        if len(self.loss_magnitude_history['affinity']) > 10:  # Keep only recent history
+            self.loss_magnitude_history['affinity'].pop(0)
+
+        # Apply dynamic affinity weight
+        weighted_affinity_loss = aff_weight * total_affinity_loss
+        total_loss = weighted_affinity_loss
 
         # ===== COORDINATE LOSS =====
         if self.predict_str and 'sidechain_predictions' in results:
             # Use the new SidechainMapCoordinateLoss
             str_loss, str_loss_dict = self.str_loss_fn(results)
 
-            weighted_str_loss = self.str_loss_weight * str_loss
-            total_loss = total_loss +  weighted_str_loss
+            # Store loss magnitude for adaptive weighting
+            self.loss_magnitude_history['structure'].append(str_loss.item())
+            if len(self.loss_magnitude_history['structure']) > 10:  # Keep only recent history
+                self.loss_magnitude_history['structure'].pop(0)
+
+            # Get adaptive weights based on loss magnitudes
+            aff_adaptive, str_adaptive = self.get_adaptive_loss_weights(
+                total_affinity_loss.item(), str_loss.item()
+            )
+
+            # Apply both scheduled and adaptive weights
+            final_str_weight = str_weight * str_adaptive
+            weighted_str_loss = final_str_weight * str_loss
+            total_loss = total_loss + weighted_str_loss
 
             # Add coordinate losses to loss dict
             loss_dict.update(str_loss_dict)
             loss_dict['weighted_str_loss'] = weighted_str_loss.item()
+            loss_dict['str_weight_scheduled'] = str_weight
+            loss_dict['str_weight_adaptive'] = str_adaptive
+            loss_dict['str_weight_final'] = final_str_weight
+
+        # Log scheduling weights
+        loss_dict['aff_weight'] = aff_weight
+        loss_dict['weighted_aff_loss'] = weighted_affinity_loss.item()
         loss_dict['total_loss'] = total_loss.item()
 
         return total_loss, loss_dict
@@ -482,11 +581,14 @@ class AFFModel_ThreeBody(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         results = self(batch)
         total_loss, loss_dict = self._compute_loss(results)
-        # Log loss components
+        # Log loss components and scheduling info
         actual_batch_size = len(batch['ligand'])
         for loss_name, loss_value in loss_dict.items():
             if loss_name != 'total_loss':
                 self.log(f"train_{loss_name}", loss_value, batch_size=actual_batch_size)
+
+        # Log epoch to monitor scheduling
+        self.log("epoch", float(self.current_epoch), batch_size=actual_batch_size)
 
         # Store predictions for epoch-level metrics
         pred_affinities = results['affinity'].detach().cpu().flatten()
@@ -658,7 +760,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         if other_params:
             param_groups.append({'params': other_params, 'lr': self.hparams.lr})
 
-        optimizer = torch.optim.AdamW(param_groups, weight_decay=0.01)
+        optimizer = torch.optim.AdamW(param_groups, weight_decay=self.hparams.weight_decay)
 
         # Learning rate scheduler
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
