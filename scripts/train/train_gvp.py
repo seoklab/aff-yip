@@ -5,9 +5,9 @@ from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 import wandb
-import torch 
+import torch
 
-from src.model.model_twobody import AFFModel_TwoBody
+# from src.model.model_twobody import AFFModel_TwoBody
 from src.model.model_threebody_virtual import AFFModel_ThreeBody as AFFModel_VirtualWater
 from src.data.datamodule import RLADataModule
 
@@ -15,6 +15,7 @@ from scripts.train.train_utils import CoordinateSaverCallback, DelayedEarlyStopp
 
 def main(args):
     pl.seed_everything(args.seed)
+    torch.autograd.set_detect_anomaly(True)
 
     # === Init wandb (optional disable)
 
@@ -28,7 +29,7 @@ def main(args):
     wandb_logger.experiment.config.update(vars(args))  # log all CLI args
 
     # === Data module
-    if args.small_set: 
+    if args.small_set:
         args.train_data_path = 'data/debug.json'
         args.valid_data_path = 'data/debug.json'
         args.test_data_path = 'data/debug.json'
@@ -44,7 +45,7 @@ def main(args):
     )
 
     # === Model
-    if args.model_type == 'virtual': 
+    if args.model_type == 'virtual':
         model = AFFModel_VirtualWater(
             protein_node_dims=(args.protein_scalar_dim, args.protein_vector_dim),
             protein_edge_dims=(args.protein_edge_scalar_dim, args.protein_edge_vector_dim),
@@ -58,24 +59,26 @@ def main(args):
             lr=args.learning_rate,
             interaction_mode=args.interaction_mode,  # "hierarchical" or "parallel"
             loss_type=args.loss_type,  # "multitask" or "single"
+            # str params -> config afterwards  .. pass as params dict?
             predict_str=args.do_structure_prediction,  # whether to predict structure
             str_model_type=args.str_model_type,  # "mlp" or "egnn"
+            str_loss_weight=0.3
         )
-    elif args.model_type == 'twobody':
-        model = AFFModel_TwoBody(
-            protein_node_dims=(args.protein_scalar_dim, args.protein_vector_dim),
-            protein_edge_dims=(args.protein_edge_scalar_dim, args.protein_edge_vector_dim),
-            ligand_node_dims=(args.ligand_scalar_dim, 0),
-            ligand_edge_dims=(args.ligand_edge_scalar_dim, 0),
-            protein_hidden_dims=(args.hidden_scalar_dim, args.hidden_vector_dim),
-            ligand_hidden_dims=(args.hidden_scalar_dim, 0),
-            num_gvp_layers=args.num_gvp_layers,
-            dropout=args.dropout,
-            lr=args.learning_rate,
-            interaction_mode="cross_attention", # no hierarchical for twobody model
-            loss_type=args.loss_type,  # "multitask" or "single"
-            predict_str=args.do_structure_prediction,  # whether to predict structure
-        )
+    # elif args.model_type == 'twobody':
+    #     model = AFFModel_TwoBody(
+    #         protein_node_dims=(args.protein_scalar_dim, args.protein_vector_dim),
+    #         protein_edge_dims=(args.protein_edge_scalar_dim, args.protein_edge_vector_dim),
+    #         ligand_node_dims=(args.ligand_scalar_dim, 0),
+    #         ligand_edge_dims=(args.ligand_edge_scalar_dim, 0),
+    #         protein_hidden_dims=(args.hidden_scalar_dim, args.hidden_vector_dim),
+    #         ligand_hidden_dims=(args.hidden_scalar_dim, 0),
+    #         num_gvp_layers=args.num_gvp_layers,
+    #         dropout=args.dropout,
+    #         lr=args.learning_rate,
+    #         interaction_mode="cross_attention", # no hierarchical for twobody model
+    #         loss_type=args.loss_type,  # "multitask" or "single"
+    #         predict_str=args.do_structure_prediction,  # whether to predict structure
+    #     )
     # === Callbacks
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(args.output_dir, 'checkpoints'),
@@ -85,35 +88,43 @@ def main(args):
         save_top_k=3,
         save_last=True
     )
-
+    
     early_stop_callback = DelayedEarlyStopping(
     monitor='val_reg_loss',
     mode='min',
     patience=args.patience,
     min_delta=0.01,
-    min_epochs_before_stop=80  # delay early stopping until at least 20 epochs
+    min_epochs_before_stop=100  # delay early stopping
 )
-    
+
     lig_coord_saver = CoordinateSaverCallback(
         save_every_n_epochs=args.save_coords_every_n_epochs,  # Save every N epochs
-        original_mol2_dir="/home/j2ho/DB/biolip/BioLiP_updated_set/ligand_mol2",                 
+        original_mol2_dir="/home/j2ho/DB/biolip/BioLiP_updated_set/ligand_mol2",
         original_pdb_dir="/home/j2ho/DB/biolip/BioLiP_updated_set/receptor", # Corrected path
         output_dir=f"./predicted_str/{args.run_name}",
         save_coords_pt=False,  # Also save as .pt files
         separate_epoch_dirs=False)
 
-    
+    if args.do_structure_prediction:
+        callbacks = [checkpoint_callback, lig_coord_saver] #, early_stop_callback]
+    else:
+        callbacks = [checkpoint_callback]
     # === Trainer
     trainer = pl.Trainer(
+        min_epochs=50,
         max_epochs=args.max_epochs,
-        callbacks=[checkpoint_callback, lig_coord_saver, early_stop_callback],
+        callbacks=callbacks,
         logger=wandb_logger,
         log_every_n_steps=1,
         accumulate_grad_batches=args.accum_grad,
         accelerator=args.accelerator,
-        strategy=DDPStrategy(find_unused_parameters=True) if args.ddp and args.accelerator == 'gpu' else 'auto',
+        strategy='ddp_find_unused_parameters_true', #if args.ddp and args.accelerator == 'gpu' else 'auto',
+        # strategy=DDPStrategy(find_unused_parameters=True) if args.ddp and args.accelerator == 'gpu' else 'auto',
         devices=args.devices,
         num_nodes=args.num_nodes if hasattr(args, 'num_nodes') else 1,
+        gradient_clip_val=1.0,
+        gradient_clip_algorithm="norm"
+
     )
     debugger = pl.Trainer(
         limit_train_batches=3,
@@ -130,9 +141,9 @@ def main(args):
         # Run a single epoch for debugging
         debugger.fit(model, data_module)
         return
-    else: 
+    else:
         trainer.fit(model, data_module)
-        trainer.test(model, datamodule=data_module)
+        # trainer.test(model, datamodule=data_module)
 
 
 if __name__ == '__main__':
@@ -182,14 +193,14 @@ if __name__ == '__main__':
     model.add_argument('--num_gvp_layers', type=int, default=4)
     model.add_argument('--dropout', type=float, default=0.1)
     model.add_argument('--interaction_mode', type=str, choices=['hierarchical', 'parallel'], default='hierarchical')
-    model.add_argument('--loss_type', type=str, choices=['multitask', 'single'], default='single') 
+    model.add_argument('--loss_type', type=str, choices=['multitask', 'single'], default='single')
     model.add_argument('--do_structure_prediction', action='store_true',
                         help='Whether to predict ligand structure in addition to affinity')
     model.add_argument('--str_model_type', type=str, choices=['mlp', 'egnn'], default='mlp',)
     # === Optimizationtrain_
     optim = parser.add_argument_group('Optimization')
     optim.add_argument('--learning_rate', type=float, default=1e-4)
-    optim.add_argument('--max_epochs', type=int, default=150)
+    optim.add_argument('--max_epochs', type=int, default=1000)
     optim.add_argument('--patience', type=int, default=10)
     optim.add_argument('--devices', type=int, default=-1)
     optim.add_argument('--ddp', action='store_true', help='Enable DDP strategy for multi-GPU training')
