@@ -310,8 +310,6 @@ def save_predicted_pdb_sidechain_map(name, sidechain_predictions, sidechain_targ
                 if res_name and chain_id and res_num:
                     pdb_key = f"{chain_id}_{res_num}_{res_name}"
                     residue_to_predicted_coords[pdb_key] = residue_coords
-        #         else:
-        #             print(f"SAVER WARNING: Could not parse residue key: {residue_key}")
 
         # print(f"SAVER DEBUG: Total residues mapped: {len(residue_to_predicted_coords)}")
         # print(f"SAVER DEBUG: Total atoms: {total_atoms}")
