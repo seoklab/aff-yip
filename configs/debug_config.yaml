@@ -1,0 +1,140 @@
+# Debug Configuration - Small model for quick testing
+model:
+  model_type: "virtual"
+  
+  # Node dimensions
+  protein_node_dims:
+    scalar: 26
+    vector: 3
+  
+  virtual_node_dims:
+    scalar: 26
+    vector: 3
+  
+  ligand_node_dims:
+    scalar: 46
+    vector: 0
+  
+  # Edge dimensions
+  protein_edge_dims:
+    scalar: 41
+    vector: 1
+  
+  ligand_edge_dims:
+    scalar: 9
+    vector: 0
+  
+  # Smaller hidden dimensions for faster training
+  hidden_dims:
+    protein_scalar: 64
+    protein_vector: 8
+    virtual_scalar: 64
+    virtual_vector: 3
+    ligand_scalar: 64
+    ligand_vector: 0
+  
+  # Model architecture
+  num_gvp_layers: 2
+  dropout: 0.1
+  interaction_mode: "hierarchical"
+  
+  # Structure prediction disabled for debug
+  # Structure prediction enabled
+  structure_prediction:
+    enabled: true
+    model_type: "egnn"
+    loss_weight: 0.5 # Weight for structure prediction loss without loss scheduling
+    loss_params:
+      loss_type: "mse"
+      ligand_weight: 1.0
+      sidechain_weight: 1.0
+      use_distance_loss: true
+      ligand_distance_weight: 0.3
+      sidechain_distance_weight: 0.6
+      distance_loss_type: "mse"
+      distance_cutoff: 5.0
+# Loss configuration
+loss:
+  type: "multitask"
+  
+  affinity_loss:
+    beta: 1.0
+    extreme_weight: 1.5
+    ranking_weight: 0.5
+  
+  multitask_loss:
+    thresholds: [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0]
+    regression_weight: 0.75
+    category_penalty_weight: 0.15
+    extreme_penalty_weight: 0.0
+    pearson_penalty_weight: 0.1
+    relative_error_weight: 0.1
+    extreme_boost_low: 1.3
+    extreme_boost_high: 1.4
+  
+  scheduling:
+    enabled: true
+    structure_warmup_epochs: 15
+    affinity_warmup_epochs: 15
+    structure_max_weight: 1.0
+    affinity_max_weight: 2.0
+
+# Training configuration
+training:
+  learning_rate: 1e-3
+  seed: 42
+  max_epochs: 10
+  patience: 5
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"
+  
+  optimizer:
+    type: "adamw"
+    weight_decay: 0.01
+
+# Data configuration
+data:
+  data_path: "data/"
+  train_data_path: "data/debug.json"
+  valid_data_path: "data/debug.json"
+  test_data_path: "data/debug.json"
+  batch_size: 8
+  num_workers: 2
+  top_k: 30
+  crop_size: 20
+
+# Logging and checkpointing
+logging:
+  project: "protein-ligand-affinity-debug"
+  run_name: "debug_run"
+  wandb_mode: "disabled"
+  output_dir: "./debug_outputs"
+  log_every_n_steps: 1
+  
+  checkpoint:
+    dirpath: "checkpoints"
+    filename: "debug-{epoch:02d}-{val_loss:.4f}"
+    monitor: "val_mae"
+    mode: "min"
+    save_top_k: 1
+    save_last: true
+  
+  early_stopping:
+    enabled: false
+  
+  coordinate_saving:
+    enabled: true
+    save_every_n_epochs: 1
+    original_mol2_dir: "/home/j2ho/DB/biolip/BioLiP_updated_set/ligand_mol2"
+    original_pdb_dir: "/home/j2ho/DB/biolip/BioLiP_updated_set/receptor"
+    output_dir: "./predicted_str"
+    save_coords_pt: true
+    separate_epoch_dirs: true
+
+# Hardware configuration
+hardware:
+  devices: 1
+  accelerator: "auto"
+  strategy: "auto"
+  num_nodes: 1
+  accumulate_grad_batches: 1
