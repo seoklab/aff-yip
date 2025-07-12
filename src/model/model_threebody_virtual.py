@@ -30,11 +30,10 @@ class AFFModel_ThreeBody(pl.LightningModule):
                  weight_decay=0.01,
                  interaction_mode="hierarchical",
                  predict_str=False,
-                 str_model_type="egnn", #"mlp",  # "mlp" or "egnn"
-                 str_loss_weight=0.3,
+                 str_model_type="egnn",
                  str_loss_params=None,
-                 loss_params=None,
                  loss_type="single",  # single: no classification head
+                 loss_params=None,
                  loss_scheduling_params=None):
         super().__init__()
         self.save_hyperparameters()
@@ -170,7 +169,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         self.loss_scheduling = loss_scheduling_params
 
         if predict_str:
-            self.str_loss_weight = str_loss_weight
+            self.str_loss_weight = self.str_loss_params.get('loss_weight', 0.3)  
 
         # Keep individual attributes for backward compatibility
         self.use_loss_scheduling = self.loss_scheduling.get('enabled', True)
