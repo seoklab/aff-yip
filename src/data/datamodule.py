@@ -9,7 +9,8 @@ from torch_geometric.data import Batch
 import torch_geometric
 import torch 
 
-from .dataset_gvp import RLADataset
+#from .dataset_gvp import RLADataset
+from .dataset import RLADataset
 
 def _log_bad_samples(names, path='bad_samples.txt'):
     """Append bad sample names to a file"""
@@ -26,6 +27,7 @@ class RLADataModule(pl.LightningDataModule):
                  train_meta_path: str = None,
                  val_meta_path: str = None,
                  test_meta_path: str = None,
+                 glem_data_path: str = None, # Path to GLEM data, used by RLADataset
                  batch_size: int = 1,
                  num_workers: int = 4,
                  top_k: int = 30,
@@ -35,7 +37,7 @@ class RLADataModule(pl.LightningDataModule):
         self.train_meta_path = train_meta_path
         self.val_meta_path = val_meta_path
         self.test_meta_path = test_meta_path
-
+        self.glem_data_path = glem_data_path  # Path to GLEM data, used by RLADataset
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.top_k = top_k
@@ -237,13 +239,24 @@ class RLADataModule(pl.LightningDataModule):
                     return None
             elif isinstance(values[0], str):
                 collated[key] = values
+            elif key == 'glem':
+                # Handle GLEM tensors - they're already tensors, just stack them
+                try:
+                    collated[key] = torch.stack(values)
+                except Exception as e:
+                    print(f"[Collate] Skipping batch for key '{key}' due to tensor stack error: {e}")
+                    print(f"         Values shapes: {[v.shape if hasattr(v, 'shape') else type(v) for v in values]}")
+                    names = [getattr(sample['ligand'], 'name', f"<no_name_{i}>") for i, sample in enumerate(batch) if 'ligand' in sample]
+                    print(f"         Affected sample names: {names}")
+                    _log_bad_samples(names, error_log_path)
+                    return None
             else:
                 try:
                     collated[key] = torch.tensor(values)
                 except Exception as e:
                     print(f"[Collate] Skipping batch for key '{key}' due to tensor error: {e}")
                     print(f"         Values: {values}")
-                    names = [getattr(sample['ligand'], 'name', f"<no_name_{i}>") for i, sample in batch if 'ligand' in sample]
+                    names = [getattr(sample['ligand'], 'name', f"<no_name_{i}>") for i, sample in enumerate(batch) if 'ligand' in sample]
                     print(f"         Affected sample names: {names}")
                     _log_bad_samples(names, error_log_path)
                     return None
@@ -270,23 +283,23 @@ class RLADataModule(pl.LightningDataModule):
                 train_targets = self._load_meta_file(self.train_meta_path)
                 if train_targets: 
                     self.train_dataset = RLADataset(
-                        data_path=self.data_path, target_dict=train_targets, mode='train',
-                        top_k=self.top_k, crop_size=self.crop_size
+                        data_path=self.data_path, target_dict=train_targets, glem_data_path=self.glem_data_path, 
+                        mode='train', top_k=self.top_k, crop_size=self.crop_size
                     )
             if self.val_meta_path:
                 val_targets = self._load_meta_file(self.val_meta_path)
                 if val_targets:
                     self.val_dataset = RLADataset(
-                        data_path=self.data_path, target_dict=val_targets, mode='val',
-                        top_k=self.top_k, crop_size=self.crop_size
+                        data_path=self.data_path, target_dict=val_targets, glem_data_path=self.glem_data_path, 
+                        mode='val', top_k=self.top_k, crop_size=self.crop_size
                     )
         if stage == 'test' or stage is None:
             if self.test_meta_path:
                 test_targets = self._load_meta_file(self.test_meta_path)
                 if test_targets:
                     self.test_dataset = RLADataset(
-                        data_path=self.data_path, target_dict=test_targets, mode='test',
-                        top_k=self.top_k, crop_size=self.crop_size
+                        data_path=self.data_path, target_dict=test_targets, glem_data_path=self.glem_data_path, 
+                        mode='test', top_k=self.top_k, crop_size=self.crop_size
                     )
 
     # Dataloader methods (train_dataloader, val_dataloader, test_dataloader) remain the same
