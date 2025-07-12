@@ -33,18 +33,13 @@ class AFFModel_ThreeBody(pl.LightningModule):
                  str_model_type="egnn", #"mlp",  # "mlp" or "egnn"
                  str_loss_weight=0.3,
                  str_loss_params=None,
-                 loss_type="single",  # single: no classification head
                  loss_params=None,
-                 # Loss scheduling parameters
-                 use_loss_scheduling=True,
-                 str_warmup_epochs=15,
-                 aff_warmup_epochs=25,
-                 str_max_weight=1.0,
-                 aff_max_weight=2.0,
-                 aff_min_weight=1.0):
+                 loss_type="single",  # single: no classification head
+                 loss_scheduling_params=None):
         super().__init__()
         self.save_hyperparameters()
-
+        self.loss_params = loss_params if loss_params is not None else {}
+        self.str_loss_params = str_loss_params if str_loss_params is not None else {}
         # === Original model components ===
         self.interaction_mode = interaction_mode
         self.predict_str = predict_str
@@ -106,23 +101,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
         # Structure Prediction Setups
         if predict_str:
-            self.str_loss_weight = str_loss_weight
-
-        # Loss scheduling setup
-        self.use_loss_scheduling = use_loss_scheduling
-        self.str_warmup_epochs = str_warmup_epochs
-        self.aff_warmup_epochs = aff_warmup_epochs
-        self.str_max_weight = str_max_weight
-        self.aff_max_weight = aff_max_weight
-        self.aff_min_weight = aff_min_weight
-        
-        # Track loss magnitudes for auto-balancing
-        self.loss_magnitude_history = {
-            'affinity': [],
-            'structure': []
-        }
-
-        if predict_str:
             if self.str_model_type == "egnn":
                 self.structure_predictor = EGNNStructModule(
                     lig_embed_dim=ligand_hidden_dims[0],
@@ -169,7 +147,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
             )
 
         # Initialize loss function
-        self._init_loss_function(loss_type, loss_params)
+        self._init_loss_function(loss_type)
 
         # Track  metrics
         self.train_predictions = []
@@ -178,19 +156,45 @@ class AFFModel_ThreeBody(pl.LightningModule):
         self.val_targets = []
         self.test_predictions = []
         self.test_targets = []
+        
+        if loss_scheduling_params is None:
+            # Default configuration
+            loss_scheduling_params = {
+                'enabled': True,
+                'structure_warmup_epochs': 15,
+                'affinity_warmup_epochs': 25,
+                'structure_max_weight': 1.0,
+                'affinity_max_weight': 2.0,
+                'affinity_min_weight': 1.0
+            }
+        self.loss_scheduling = loss_scheduling_params
 
-    def _init_loss_function(self, loss_type, loss_params):
+        if predict_str:
+            self.str_loss_weight = str_loss_weight
+
+        # Keep individual attributes for backward compatibility
+        self.use_loss_scheduling = self.loss_scheduling.get('enabled', True)
+        self.str_warmup_epochs = self.loss_scheduling.get('structure_warmup_epochs', 15)
+        self.aff_warmup_epochs = self.loss_scheduling.get('affinity_warmup_epochs', 25)
+        self.str_max_weight = self.loss_scheduling.get('structure_max_weight', 1.0)
+        self.aff_max_weight = self.loss_scheduling.get('affinity_max_weight', 2.0)
+        self.aff_min_weight = self.loss_scheduling.get('affinity_min_weight', 1.0)
+        
+        # Track loss magnitudes for auto-balancing
+        self.loss_magnitude_history = {
+            'affinity': [],
+            'structure': []
+        }
+
+    def _init_loss_function(self, loss_type):
         """Initialize the appropriate loss function"""
-        if loss_params is None:
-            loss_params = {}
-
         if loss_type == "multitask":
             from src.model.loss_utils import WeightedCategoryLoss_v2
             self.aff_loss_fn = WeightedCategoryLoss_v2(
                     thresholds = self.thresholds,
                     regression_weight=0.75,
                     category_penalty_weight=0.15,
-                    extreme_penalty_weight=0,
+                    extreme_penalty_weight=0.4,  # Optional
                     pearson_penalty_weight=0.1,      # Optional
                     relative_error_weight=0.1,       # Optional
                     extreme_boost_low=1.3,
@@ -198,20 +202,21 @@ class AFFModel_ThreeBody(pl.LightningModule):
                 )
         elif loss_type == "single":
             self.aff_loss_fn = AffinityLoss(
-                beta=1.0,
-                extreme_weight=1.5,
-                ranking_weight=0.5)
+                beta=self.loss_params.get('beta', 1.0),  # Optional
+                extreme_weight=self.loss_params.get('extreme_weight', 1.5),  # Optional
+                ranking_weight=self.loss_params.get('ranking_weight', 0.5)  # Optional
+            )
 
         if self.predict_str:
             self.str_loss_fn = StrLoss(
-                loss_type="mse",
-                ligand_weight=1,
-                sidechain_weight=1,
-                use_distance_loss=True,
-                ligand_distance_weight=0.3,
-                sidechain_distance_weight=0.1,
-                distance_loss_type="mse",
-                distance_cutoff=5.0
+                loss_type=self.str_loss_params.get('loss_type',"mse"),
+                ligand_weight=self.str_loss_params.get('ligand_weight', 1.0),
+                sidechain_weight=self.str_loss_params.get('sidechain_weight', 1.0),
+                use_distance_loss=self.str_loss_params.get('use_distance_loss', True),
+                ligand_distance_weight=self.str_loss_params.get('ligand_distance_weight', 0.1),
+                sidechain_distance_weight=self.str_loss_params.get('sidechain_distance_weight', 0.1),
+                distance_loss_type=self.str_loss_params.get('distance_loss_type', "mse"),
+                distance_cutoff=self.str_loss_params.get('distance_cutoff', 5.0)
             )
 
         self.loss_type = loss_type
