@@ -11,18 +11,27 @@ import torch
 
 # Import model and data module
 from src.model.model_threebody_virtual import AFFModel_ThreeBody as AFFModel_VirtualWater
+from src.model.threebody_virtual_glem import AFFModel_ThreeBody as AFFModel_VirtualWater_GLEM
 from src.data.datamodule import RLADataModule
 from scripts.train.train_utils import CoordinateSaverCallback, DelayedEarlyStopping
 
 # Import config utilities
-from src.utils.config_parser import ConfigParser, create_parser_with_config_support
-from src.utils.model_config import ModelConfig
+from scripts.utils.config_parser import ConfigParser, create_parser_with_config_support
+from scripts.utils.model_config import ModelConfig
 
 
-def create_model_from_config(config: ModelConfig) -> AFFModel_VirtualWater:
+def create_model_from_config(config: ModelConfig):
     """Create model from configuration."""
     model_kwargs = config.to_model_kwargs()
-    return AFFModel_VirtualWater(**model_kwargs)
+    
+    # Check model type and return appropriate model
+    if config.model_type == "virtual_glem":
+        return AFFModel_VirtualWater_GLEM(**model_kwargs)
+    elif config.model_type == "virtual":
+        # Default to virtual water model for "virtual" or other types
+        return AFFModel_VirtualWater(**model_kwargs)
+    else:
+        raise ValueError(f"Unsupported model type: {config.model_type}. Supported types are 'virtual' and 'virtual_glem'.")
 
 
 def create_data_module_from_config(config_parser: ConfigParser) -> RLADataModule:
