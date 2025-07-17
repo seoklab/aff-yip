@@ -93,8 +93,8 @@ data:
 
 # Inference specific parameters
 inference:
-  meta_path: "data/casp16.json"  # Path to test metadata file
-  output_path: "results/predictions.json"  # Output file for predictions
+  meta_path: "data/casf_core.json"  # Path to test metadata file
+  output_path: "results/casf_predictions.json"  # Output file for predictions
   device: "cuda"  # "cuda" or "cpu"
   batch_size: 1  # Override data batch_size for inference
   num_workers: 4  # Override data num_workers for inference

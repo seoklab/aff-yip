@@ -67,6 +67,7 @@ loss:
     affinity_warmup_epochs: 20
     structure_max_weight: 1.0
     affinity_max_weight: 2.0
+    affinity_min_weight: 1.0
 
 # Training configuration
 training:
@@ -92,7 +93,7 @@ training:
 # Data configuration
 data:
   data_path: "data/"
-  train_data_path: "data/train.json"
+  train_data_path: "data/train_with_sdf_nocasf.json"
   valid_data_path: "data/val.json"
   test_data_path: "data/casp16.json"
   batch_size: 16

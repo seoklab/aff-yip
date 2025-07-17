@@ -26,16 +26,17 @@ model:
 
   # Hidden dimensions
   hidden_dims:
-    protein_scalar: 196
+    protein_scalar: 128
     protein_vector: 16
-    virtual_scalar: 196
+    virtual_scalar: 128
     virtual_vector: 3
-    ligand_scalar: 196
+    ligand_scalar: 128
     ligand_vector: 0
 
   # Model architecture
   num_gvp_layers: 4
   interaction_mode: "hierarchical"
+  use_protein_global: false
 
   # Structure prediction enabled
   structure_prediction:
@@ -47,41 +48,44 @@ model:
       ligand_weight: 1.0
       sidechain_weight: 1.0
       use_distance_loss: true
-      ligand_distance_weight: 0.3
-      sidechain_distance_weight: 0.6
+      ligand_distance_weight: 0.5
+      sidechain_distance_weight: 0.5
       distance_loss_type: "mse"
       distance_cutoff: 5.0
 
 # Loss configuration
 loss:
-  type: "single"
+  type: "multitask"
 
   affinity_loss:
+    affinity_loss_weight: 1.5
     beta: 1.0
-    extreme_weight: 1.5
-    ranking_weight: 0.2
+    extreme_weight: 1.0
+    ranking_weight: 0.0
 
   multitask_loss:
-    thresholds: [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0]
+    affinity_loss_weight: 1.5
+    thresholds: [5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 10.0]
     regression_weight: 0.75
     category_penalty_weight: 0.15
     extreme_penalty_weight: 0.0
     pearson_penalty_weight: 0.1
     relative_error_weight: 0.1
-    extreme_boost_low: 1.3
+    extreme_boost_low: 0.0
     extreme_boost_high: 1.4
   
   scheduling:
-    enabled: true
+    enabled: false
     structure_warmup_epochs: 15
     affinity_warmup_epochs: 15
     structure_max_weight: 1.0
     affinity_max_weight: 2.0
+    affinity_min_weight: 1.3
 
 # Training configuration
 training:
   dropout: 0.3
-  learning_rate: 5e-4
+  learning_rate: 1e-4
   seed: 42
   max_epochs: 500
   patience: 15
@@ -95,32 +99,32 @@ training:
     lr_multipliers:
       protein_virtual_encoder: 1
       ligand_encoder: 1
-      regressor: 1.0
+      regressor: 1.0 
       structure_predictor: 1
       other_params: 1.0
 
 # Data configuration
 data:
   data_path: "data/"
-  train_data_path: "data/train.json"
-  valid_data_path: "data/val.json"
-  test_data_path: "data/casp16.json"
+  train_data_path: "data/TRAIN_pka4_nocasf.json"
+  valid_data_path: "data/VALID_pka4.json"
+  test_data_path: "data/casf_core.json"
   batch_size: 16
   num_workers: 4
   top_k: 30
-  crop_size: 20
+  crop_size: 22.5
   glem_data_path: "data/GLEM/"
 
 # Logging and checkpointing
 logging:
   project: "protein-ligand-affinity"
-  run_name: "str_glem"
+  run_name: "str_glem_128_mul_affcut"
   wandb_mode: "online"
   output_dir: "./outputs"
   log_every_n_steps: 10
 
   checkpoint:
-    dirpath: "checkpoints"
+    dirpath: "checkpoints" 
     filename: "model-{epoch:02d}-{val_loss:.4f}"
     monitor: "val_mae"
     mode: "min"

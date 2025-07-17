@@ -36,6 +36,7 @@ model:
   # Model architecture
   num_gvp_layers: 4
   interaction_mode: "hierarchical"
+  use_protein_global: false
 
   # Structure prediction enabled
   structure_prediction:
