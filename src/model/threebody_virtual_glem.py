@@ -29,18 +29,20 @@ class AFFModel_ThreeBody(pl.LightningModule):
                  lr=1e-3,
                  weight_decay=0.01,
                  interaction_mode="hierarchical",
+                 use_protein_global=False,
                  predict_str=False,
                  str_model_type="egnn", #"mlp",  # "mlp" or "egnn"
                  str_loss_params=None,
                  loss_type="single",  # single: no classification head
-                 loss_params=None,
+                 aff_loss_params=None,
                  loss_scheduling_params=None):
         super().__init__()
         self.save_hyperparameters()
-        self.loss_params = loss_params if loss_params is not None else {}
+        self.aff_loss_params = aff_loss_params if aff_loss_params is not None else {}
         self.str_loss_params = str_loss_params if str_loss_params is not None else {}
         # === Original model components ===
         self.interaction_mode = interaction_mode
+        self.use_protein_global = use_protein_global
         self.predict_str = predict_str
         self.str_model_type = str_model_type
         # Encoders
@@ -48,19 +50,19 @@ class AFFModel_ThreeBody(pl.LightningModule):
         self.protein_encoder = GVPGraphEncoder(
             node_dims=protein_node_dims,
             edge_dims=protein_edge_dims,
-            hidden_dims=(64,16),
+            hidden_dims=protein_hidden_dims, #(64,16),
             num_layers=2,
         )
 
         self.virtual_encoder = GVPGraphEncoder(
             node_dims=virtual_node_dims,
             edge_dims=protein_edge_dims,  # Use same edge dims as protein
-            hidden_dims=(64,16),
+            hidden_dims=protein_hidden_dims, #(64,16),
             num_layers=2,
         )
 
         self.protein_virtual_encoder = GVPGraphEncoder(
-            node_dims=(64,16), #protein_node_dims,
+            node_dims=protein_hidden_dims, #(64,16), #protein_node_dims,
             edge_dims=protein_edge_dims,
             hidden_dims=protein_hidden_dims,
             num_layers=num_gvp_layers,
@@ -132,9 +134,15 @@ class AFFModel_ThreeBody(pl.LightningModule):
             nn.Linear(ligand_node_dims[0], embed_dim),
         )
         if self.predict_str:
-            embed_dim = embed_dim * 3 # complex plv from interaction + complex from strpred + glem 
+            if self.use_protein_global:
+                embed_dim = embed_dim * 4 # complex plv from interaction + complex from strpred + glem + protein_global
+            else: 
+                embed_dim = embed_dim * 3 # complex plv from interaction + complex from strpred + glem
         else:
-            embed_dim = embed_dim * 2 # complex plv from interaction + glem
+            if self.use_protein_global:
+                embed_dim = embed_dim * 3 # complex plv from interaction + glem + protein_global
+            else:
+                embed_dim = embed_dim * 2 # complex plv from interaction + glem
 
         self.regressor = nn.Sequential(
             nn.Linear(embed_dim, embed_dim),
@@ -147,7 +155,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
         # Additional heads for multitask: classification and regression
         if loss_type == "multitask":
-            self.thresholds = [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0]
+            self.thresholds = self.aff_loss_params.get('thresholds', [4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])  # Default thresholds
             class_num = len(self.thresholds) + 1  # +1 for the "extreme" class
             self.classification_head = nn.Sequential(
                 nn.Linear(embed_dim, embed_dim),
@@ -201,19 +209,19 @@ class AFFModel_ThreeBody(pl.LightningModule):
             from src.model.loss_utils import WeightedCategoryLoss_v2
             self.aff_loss_fn = WeightedCategoryLoss_v2(
                     thresholds = self.thresholds,
-                    regression_weight=0.75,
-                    category_penalty_weight=0.15,
-                    extreme_penalty_weight=0.4,  # Optional
-                    pearson_penalty_weight=0.1,      # Optional
-                    relative_error_weight=0.1,       # Optional
-                    extreme_boost_low=1.3,
-                    extreme_boost_high=1.4
+                    regression_weight=self.aff_loss_params.get('regression_weight',0.75),
+                    category_penalty_weight=self.aff_loss_params.get('category_penalty_weight',0.15),
+                    extreme_penalty_weight=self.aff_loss_params.get('extreme_penalty_weight',0.4),
+                    pearson_penalty_weight=self.aff_loss_params.get('pearson_penalty_weight',0.1),
+                    relative_error_weight=self.aff_loss_params.get('relative_error_weight',0.1),
+                    extreme_boost_low=self.aff_loss_params.get('extreme_boost_low',0.0),
+                    extreme_boost_high=self.aff_loss_params.get('extreme_boost_high',1.4)
                 )
         elif loss_type == "single":
             self.aff_loss_fn = AffinityLoss(
-                beta=self.loss_params.get('beta', 1.0),  # Optional
-                extreme_weight=self.loss_params.get('extreme_weight', 1.5),  # Optional
-                ranking_weight=self.loss_params.get('ranking_weight', 0.5)  # Optional
+                beta=self.aff_loss_params.get('beta', 1.0),  # Optional
+                extreme_weight=self.aff_loss_params.get('extreme_weight', 1.5),  # Optional
+                ranking_weight=self.aff_loss_params.get('ranking_weight', 0.5)  # Optional
             )
 
         if self.predict_str:
@@ -234,7 +242,6 @@ class AFFModel_ThreeBody(pl.LightningModule):
         interaction_results = self.get_embeddings(batch)
         complex_embedding = interaction_results['complex_embedding']  # [B, embed_dim]
         results = dict()
-
         if self.predict_str:
             coord_results, h = self._predict_coordinates_from_shared_embeddings(batch, interaction_results)
             # if coord_results['sidechain_predictions'] is not None:
@@ -244,8 +251,16 @@ class AFFModel_ThreeBody(pl.LightningModule):
 
         glem = batch['glem'].to(self.device)  # Global ligand embedding
         ligand_global = self.process_glem(glem)  # Process GLEM 
+        # print (f"GLEM shape: {glem.shape}, Processed GLEM shape: {ligand_global.shape}")
         # Concatenate complex embedding with GLEM
-        complex_embedding = torch.cat([complex_embedding, ligand_global], dim=-1)
+        # print (f"Complex embedding shape before concat: {complex_embedding.shape}, "
+        #         f"Ligand global shape: {ligand_global.shape}, Protein global shape: {protein_global.shape}")
+        # TODO - Add protein global embedding. equivalent to GLEM 
+        if self.use_protein_global:
+            protein_global = interaction_results['protein_embeddings_i']  # [N_protein, embed_dim]
+            complex_embedding = torch.cat([complex_embedding, ligand_global, protein_global], dim=-1)
+        else:
+            complex_embedding = torch.cat([complex_embedding, ligand_global], dim=-1)
         if self.loss_type == "multitask":
             # Regression prediction
             pred_affinity = self.regressor(complex_embedding).squeeze()
@@ -297,14 +312,22 @@ class AFFModel_ThreeBody(pl.LightningModule):
             edge_index=v2v_edge_index,
             batch_idx=virtual_batch_idx_initial)
         # Step3: Get interaction embeddings
-        complex_embeddings, ligand_embeddings_after_interaction, virtual_embeddings_after_interaction, protein_embeddings_after_interaction = self._get_hierarchical_interaction_embeddings(
+        complex_embeddings, ligand_embeddings_after_interaction, virtual_embeddings_after_interaction, protein_embeddings_after_interaction, prot_s_list = self._get_hierarchical_interaction_embeddings(
             prot_s, virtual_s, lig_s,
             protein_batch_idx=protein_virtual_batch.batch[protein_mask],
             virtual_batch_idx=virtual_batch_idx,
             ligand_batch_idx=ligand_batch.batch
         )
+        protein_embeddings_initial = []
+        for ps in prot_s_list: 
+            ps = ps.unsqueeze(0)  
+            ps_mean = ps.mean(dim=1)  # [1, embed_dim]
+            protein_embeddings_initial.append(ps_mean)
+        protein_embeddings_initial = torch.stack(protein_embeddings_initial, dim=0)
+        protein_embeddings_initial = protein_embeddings_initial.squeeze(1)  # [B, embed_dim]
 
         return {
+            'protein_embeddings_i': protein_embeddings_initial,
             'complex_embedding': complex_embeddings,           # [B, embed_dim] for affinity
             'virtual_embeddings_f': virtual_embeddings_after_interaction,  # [N_virtual, embed_dim] for coords
             'virtual_batch_idx': virtual_batch_idx,   # Pooled index
@@ -368,7 +391,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
         else:
             ligand_embeddings_after_interaction = lig_s
 
-        return complex_embeddings, ligand_embeddings_after_interaction, virtual_embeddings_after_interaction, protein_embeddings_after_interaction
+        return complex_embeddings, ligand_embeddings_after_interaction, virtual_embeddings_after_interaction, protein_embeddings_after_interaction, prot_s_list
 
     def _hierarchical_interaction_with_virtual(self, p, v, l):
         """Hierarchical: (P+V) -> complex -> interact with L"""
@@ -475,7 +498,7 @@ class AFFModel_ThreeBody(pl.LightningModule):
     def get_loss_weights(self, epoch):
         """Dynamic loss weight scheduling based on training progress"""
         if not self.use_loss_scheduling:
-            return 1.0, self.str_loss_weight if self.predict_str else 0.0
+            return self.aff_loss_params.get('affinity_loss_weight', 1.0), self.str_loss_weight if self.predict_str else 0.0
 
         # Structure loss: start high, gradually decrease
         if epoch < self.str_warmup_epochs:
