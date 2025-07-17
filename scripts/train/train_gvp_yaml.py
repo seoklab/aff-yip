@@ -73,7 +73,7 @@ def create_callbacks_from_config(config_parser: ConfigParser, run_name: str) -> 
     
     # Checkpoint callback
     checkpoint_callback = ModelCheckpoint(
-        dirpath=os.path.join(logging_params['output_dir'], checkpoint_config.get('dirpath', 'checkpoints')),
+        dirpath = os.path.join(logging_params['output_dir'], run_name, checkpoint_config.get('dirpath','checkpoints')),
         filename=checkpoint_config.get('filename', 'model-{epoch:02d}-{val_loss:.4f}'),
         monitor=checkpoint_config.get('monitor', 'val_mae'),
         mode=checkpoint_config.get('mode', 'min'),

@@ -131,6 +131,7 @@ class ConfigParser:
             'num_gvp_layers': model_config.get('num_gvp_layers', 3),
             'dropout': model_config.get('dropout', 0.1),
             'interaction_mode': model_config.get('interaction_mode', 'hierarchical'),
+            'use_protein_global': model_config.get('use_protein_global', False),
             
             # Training parameters
             'lr': training_config.get('learning_rate', 1e-3),
@@ -143,7 +144,7 @@ class ConfigParser:
             
             # Loss configuration
             'loss_type': loss_config.get('type', 'single'),
-            'loss_params': affinity_loss_params if loss_config.get('type', 'single') == 'single' else multitask_loss_params,
+            'aff_loss_params': affinity_loss_params if loss_config.get('type', 'single') == 'single' else multitask_loss_params,
             
             # Loss scheduling
             'use_loss_scheduling': scheduling_params.get('enabled', True),

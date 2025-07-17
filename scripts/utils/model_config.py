@@ -80,6 +80,7 @@ class StructurePredictionConfig:
 @dataclass
 class AffinityLossConfig:
     """Configuration for affinity loss."""
+    affinity_loss_weight: float = 1.0
     beta: float = 1.0
     extreme_weight: float = 1.5
     ranking_weight: float = 0.5
@@ -88,6 +89,7 @@ class AffinityLossConfig:
 @dataclass
 class MultitaskLossConfig:
     """Configuration for multitask loss."""
+    affinity_loss_weight: float = 1.0
     thresholds: List[float] = field(default_factory=lambda: [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0])
     regression_weight: float = 0.75
     category_penalty_weight: float = 0.15
@@ -123,7 +125,7 @@ class LossSchedulingConfig:
 
 @dataclass
 class LossConfig:
-    """Configuration for loss functions."""
+    """Configuration for affinity loss functions and scheduling"""
     type: str = "single"  # "single" or "multitask"
     affinity_loss: AffinityLossConfig = field(default_factory=AffinityLossConfig)
     multitask_loss: MultitaskLossConfig = field(default_factory=MultitaskLossConfig)
@@ -134,12 +136,14 @@ class LossConfig:
         """Get loss parameters based on loss type."""
         if self.type == "single":
             return {
+                "affinity_loss_weight": self.affinity_loss.affinity_loss_weight,
                 "beta": self.affinity_loss.beta,
                 "extreme_weight": self.affinity_loss.extreme_weight,
                 "ranking_weight": self.affinity_loss.ranking_weight
             }
         else:  # multitask
             return {
+                "affinity_loss_weight": self.multitask_loss.affinity_loss_weight,
                 "thresholds": self.multitask_loss.thresholds,
                 "regression_weight": self.multitask_loss.regression_weight,
                 "category_penalty_weight": self.multitask_loss.category_penalty_weight,
@@ -172,6 +176,7 @@ class ModelConfig:
     # Model architecture
     num_gvp_layers: int = 3
     interaction_mode: str = "hierarchical"  # "hierarchical" or "parallel"
+    use_protein_global: bool = False  # Whether to use global protein node
     
     # Structure prediction
     structure_prediction: StructurePredictionConfig = field(default_factory=StructurePredictionConfig)
@@ -207,6 +212,7 @@ class ModelConfig:
             'lr': float(self.learning_rate),
             'weight_decay': float(self.weight_decay),
             'interaction_mode': self.interaction_mode,
+            'use_protein_global': self.use_protein_global,
             
             # Structure prediction
             'predict_str': self.structure_prediction.enabled,
@@ -215,7 +221,7 @@ class ModelConfig:
             
             # Loss configuration
             'loss_type': self.loss.type,
-            'loss_params': self.loss.loss_params,
+            'aff_loss_params': self.loss.loss_params,
             
             # Loss scheduling (grouped)
             'loss_scheduling_params': self.loss.scheduling.scheduling_params,
@@ -278,6 +284,7 @@ class ModelConfig:
         
         # Create loss config
         affinity_loss = AffinityLossConfig(
+            affinity_loss_weight=loss_config.get('affinity_loss', {}).get('weight', 1.0),
             beta=loss_config.get('affinity_loss', {}).get('beta', 1.0),
             extreme_weight=loss_config.get('affinity_loss', {}).get('extreme_weight', 1.5),
             ranking_weight=loss_config.get('affinity_loss', {}).get('ranking_weight', 0.5)
@@ -285,6 +292,7 @@ class ModelConfig:
         
         multitask_loss_dict = loss_config.get('multitask_loss', {})
         multitask_loss = MultitaskLossConfig(
+            affinity_loss_weight=multitask_loss_dict.get('affinity_loss_weight', 1.0),
             thresholds=multitask_loss_dict.get('thresholds', [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0]),
             regression_weight=multitask_loss_dict.get('regression_weight', 0.75),
             category_penalty_weight=multitask_loss_dict.get('category_penalty_weight', 0.15),
@@ -322,6 +330,7 @@ class ModelConfig:
             hidden_dims=hidden_dims,
             num_gvp_layers=model_config.get('num_gvp_layers', 3),
             interaction_mode=model_config.get('interaction_mode', 'hierarchical'),
+            use_protein_global=model_config.get('use_protein_global', False),
             structure_prediction=structure_prediction,
             loss=loss,
             dropout=training_config.get('dropout', 0.1),
