@@ -10,14 +10,14 @@ from .featurizers.protein import ProteinFeaturizer
 from .featurizers.ligand import LigandFeaturizer
 
 class RLADataset(Dataset):
-    def __init__(self, data_path=None, target_dict: dict = None, mode='train', top_k=30, crop_size=30, validate_samples=True):
+    def __init__(self, data_path=None, target_dict: dict = None, glem_data_path=None, mode='train', top_k=30, crop_size=30, validate_samples=True):
         self.data_path = data_path
         self.mode = mode
         self.top_k = top_k
         self.crop_size = crop_size
         self.skip_virtual = False
         self.validate_samples = validate_samples
-
+        self.glem_data_path = glem_data_path 
         # Store only metadata for lazy loading
         self.sample_metadata = []
 
@@ -150,7 +150,7 @@ class RLADataset(Dataset):
         )
 
         return protein_w_obj, protein_obj
-
+    
     def _create_ligand_objects(self, metadata):
         """Create ligand objects from metadata"""
         ligfile = metadata['ligand_mol2']
@@ -162,6 +162,43 @@ class RLADataset(Dataset):
             ligand_for_vn = Ligand(mol2_filepath=ligfile_for_vn, drop_H=False)
 
         return ligand_obj, ligand_for_vn
+    
+    def _get_glems(self, ligid):
+        glems = {}
+        
+        if not self.glem_data_path:
+            return glems
+        
+        glem_dir = os.path.join(self.glem_data_path, ligid)
+        if not os.path.exists(glem_dir):
+            return glems
+        
+        glem_files = {
+            'atom_pair': 'atom_pair.pt',
+            'atom_single': 'atom_single.pt', 
+            'frag_pair': 'frag_pair.pt',
+            'frag_single': 'frag_single.pt',
+            'rep': 'rep.pt'
+        }
+        
+        for glem_type, filename in glem_files.items():
+            filepath = os.path.join(glem_dir, filename)
+            if os.path.exists(filepath):
+                try:
+                    # Load to CPU - will be moved to GPU later in training loop
+                    tensor = torch.load(filepath, map_location='cpu')
+                    glems[glem_type] = tensor
+                    
+                except Exception as e:
+                    print(f"[Warning] Failed to load {glem_type} for {ligid}: {e}", file=sys.stderr)
+                    glems[glem_type] = None
+            else:
+                glems[glem_type] = None
+
+        # if any of the GLEMS are None, return an empty dict
+        if all(value is None for value in glems.values()):
+            glems = {}
+        return glems
 
     def _generate_graphs(self, metadata):
         """Generate all graphs for a sample"""
@@ -172,8 +209,7 @@ class RLADataset(Dataset):
 
             center = metadata['center']
             name = metadata['name']
-
-            # Initialize graphs
+            
             graphs = {}
 
             # Generate protein-only graph (no water, no virtual nodes)
@@ -184,16 +220,6 @@ class RLADataset(Dataset):
                 print(f"[Warning] {name}: Failed to create protein-only graph", file=sys.stderr)
                 return None
             graphs['protein_only'] = protein_only_graph
-
-            # # Generate protein+water graph (water, no virtual nodes)
-            # protein_water_graph = self.protein_featurizer.featurize_graph_with_water(
-            #     protein_w_obj, center=center, crop_size=self.crop_size
-            # )
-            # if protein_water_graph is None:
-            #     print(f"[Warning] {name}: Failed to create protein+water graph")
-            #     return None
-            # graphs['protein_water'] = protein_water_graph
-
             # Generate protein+water+virtual nodes graph (if not skipping virtual)
             if not self.skip_virtual:
                 protein_virtual_graph, sidechain_map_v = self.protein_featurizer.featurize_graph_with_virtual_nodes(
